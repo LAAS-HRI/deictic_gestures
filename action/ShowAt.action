@@ -1,0 +1,11 @@
+#goal definition
+string target_frame_id
+string human_frame_id
+---
+#result definition
+bool success
+---
+#feedback
+float64 cooperation_metric
+string[] action_primitives_performed
+uint user_invalidation
