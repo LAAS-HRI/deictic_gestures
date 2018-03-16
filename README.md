@@ -1,2 +1,2 @@
 # deictic_gestures
-ROS package that handle deitic gestures
+ROS package that handle deictic gestures
