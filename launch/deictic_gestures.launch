@@ -1,0 +1,7 @@
+<launch>
+
+<node pkg="deictic_gestures" type="look_at_srv_node.py" name="look_at_srv"/>
+<node pkg="deictic_gestures" type="point_at_srv_node.py" name="point_at_srv"/>
+<node pkg="deictic_gestures" type="pointing_planner_node.py" name="pointing_planner"/>
+
+</launch>
