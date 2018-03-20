@@ -40,7 +40,7 @@ class PointAtSrv(object):
             req.target.point.position.z += translation[2]
             effector = "LArm" if req.point.position.y > 0.0 else "RArm"
             self.services_proxy["point_at"](effector, [req.target.point.position.x, req.target.point.position.y,
-                                                       req.target.point.position.z], 0, POINT_AT_MAX_SPPED)
+                                                       req.target.point.position.z], 0, POINT_AT_MAX_SPEED)
             self.publishers["result_point"].publish(req.target)
             return True
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException), e:

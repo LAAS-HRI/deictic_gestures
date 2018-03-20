@@ -1,5 +1,5 @@
 string human_footprint_frame_id
-string target_frame_id
+geometry_msgs/PointStamped target
 float64 distance_to_robot # distance between human & robot (m)
 float64 alpha # desired angle beetwen robot and human
 ---

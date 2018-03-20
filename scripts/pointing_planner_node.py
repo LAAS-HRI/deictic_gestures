@@ -36,11 +36,14 @@ class PointingPlannerSrv(object):
         human_pose = geometry_msgs.msg.Pose(translation, rotation)
         rospy.loginfo("Human current pose in " + str(self.parameters["global_frame"]) + " frame :\n\r" + str(human_pose))
 
-        self.tfListener.waitForTransform(self.parameters["global_frame"], req.target_frame_id, rospy.Time(0),
+        self.tfListener.waitForTransform(self.parameters["global_frame"], req.target.header.frame_id, rospy.Time(0),
                                          rospy.Duration(2.0))
         (translation, rotation) = self.tfListener.lookupTransform(self.parameters["fixed_frame"],
-                                                                  req.target_frame_id, rospy.Time(0))
+                                                                  req.target.header.frame_id, rospy.Time(0))
         target_pose = geometry_msgs.msg.Pose(translation, rotation)
+        target_pose.position.x += req.target.point.x
+        target_pose.position.y += req.target.point.y
+        target_pose.position.z += req.target.point.z
         rospy.loginfo(
             "Target current pose in " + str(self.parameters["global_frame"]) + " frame:\n\r" + str(target_pose))
 
