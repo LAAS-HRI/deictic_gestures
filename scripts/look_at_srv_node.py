@@ -41,7 +41,7 @@ class PointAtSrv(object):
             req.target.point.position.y += translation[1]
             req.target.point.position.z += translation[2]
             self.services_proxy["stop_tracker"]()
-            self.services_proxy["point_at"]([req.point.position.x, req.point.position.y, req.point.position.z], 0, LOOK_AT_MAX_SPEED, 0)
+            self.services_proxy["look_at"]([req.point.position.x, req.point.position.y, req.point.position.z], 0, LOOK_AT_MAX_SPEED, 0)
             self.publishers["result_point"].publish(req.target)
             return True
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException), e:
