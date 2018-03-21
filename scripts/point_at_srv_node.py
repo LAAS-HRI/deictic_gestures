@@ -3,7 +3,6 @@
 import rospy
 import tf
 from std_srvs.srv import *
-from pointing_srv.srv import *
 from geometry_msgs.msg import *
 from nao_interaction_msgs.srv import *
 from deictic_gestures.srv import *
