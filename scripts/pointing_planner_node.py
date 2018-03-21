@@ -4,24 +4,23 @@ import rospy
 import tf
 import math
 from std_srvs.srv import *
-from pointing_srv.srv import *
 from geometry_msgs.msg import *
 from nao_interaction_msgs.srv import *
 from deictic_gestures.srv import *
 
 LOOK_AT_MAX_SPEED = 0.6
 
+
 class PointingPlannerSrv(object):
     def __init__(self):
-        self.services_proxy = {
-            "look_at": rospy.ServiceProxy("naoqi_driver/tracker/lookat", nao_interaction_msgs.srv.PointAt),
-            "stop_tracker": rospy.ServiceProxy("/naoqi_driver/tracker/stop_tracker", std_srvs.srv.Empty)}
 
-        self.services = {"point_at": rospy.Service('/deictic_gestures/get_pointing_config', deictic_gestures.srv.GetPointingConfig,
-                                                   self.handle_get_pointing_config)}
+        self.services = {"pointing_config": rospy.Service('/deictic_gestures/get_pointing_config', GetPointingConfig,
+                                                          self.handle_get_pointing_config)}
 
         self.tfListener = tf.TransformListener()
-        self.parameters = {"global_frame": rospy.get_param("global_frame_id", "/map"),
+
+        self.parameters = {"fixed_frame": rospy.get_param("global_frame_id", "/map"),
+                           "global_frame": rospy.get_param("global_frame_id", "/map"),
                            "robot_footprint": rospy.get_param("footprint_frame_id", "/base_footprint")}
 
         self.publishers = {
@@ -34,7 +33,8 @@ class PointingPlannerSrv(object):
         (translation, rotation) = self.tfListener.lookupTransform(self.parameters["fixed_frame"],
                                                                   req.human_footprint_frame_id, rospy.Time(0))
         human_pose = geometry_msgs.msg.Pose(translation, rotation)
-        rospy.loginfo("Human current pose in " + str(self.parameters["global_frame"]) + " frame :\n\r" + str(human_pose))
+        rospy.loginfo(
+            "Human current pose in " + str(self.parameters["global_frame"]) + " frame :\n\r" + str(human_pose))
 
         self.tfListener.waitForTransform(self.parameters["global_frame"], req.target.header.frame_id, rospy.Time(0),
                                          rospy.Duration(2.0))
@@ -107,7 +107,9 @@ class PointingPlannerSrv(object):
         self.publishers["result_pose"].publish(result_pose)
         return True, result_pose
 
+
 if __name__ == '__main__':
+    rospy.init_node('pointing_planner')
     srv = PointingPlannerSrv()
     rospy.spin()
     exit(0)
