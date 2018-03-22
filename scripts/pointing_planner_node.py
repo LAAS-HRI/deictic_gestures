@@ -19,8 +19,7 @@ class PointingPlannerSrv(object):
 
         self.tfListener = tf.TransformListener()
 
-        self.parameters = {"fixed_frame": rospy.get_param("global_frame_id", "/map"),
-                           "global_frame": rospy.get_param("global_frame_id", "/map"),
+        self.parameters = {"global_frame": rospy.get_param("global_frame_id", "/map"),
                            "robot_footprint": rospy.get_param("footprint_frame_id", "/base_footprint")}
 
         self.publishers = {
@@ -28,9 +27,9 @@ class PointingPlannerSrv(object):
 
     def handle_get_pointing_config(self, req):
 
-        self.tfListener.waitForTransform(self.parameters["fixed_frame"], req.human_footprint_frame_id,
+        self.tfListener.waitForTransform(self.parameters["global_frame"], req.human_footprint_frame_id,
                                          rospy.Time(0), rospy.Duration(2.0))
-        (translation, rotation) = self.tfListener.lookupTransform(self.parameters["fixed_frame"],
+        (translation, rotation) = self.tfListener.lookupTransform(self.parameters["global_frame"],
                                                                   req.human_footprint_frame_id, rospy.Time(0))
         human_pose = geometry_msgs.msg.Pose(translation, rotation)
         rospy.loginfo(
@@ -38,21 +37,23 @@ class PointingPlannerSrv(object):
 
         self.tfListener.waitForTransform(self.parameters["global_frame"], req.target.header.frame_id, rospy.Time(0),
                                          rospy.Duration(2.0))
-        (translation, rotation) = self.tfListener.lookupTransform(self.parameters["fixed_frame"],
+        (translation, rotation) = self.tfListener.lookupTransform(self.parameters["global_frame"],
                                                                   req.target.header.frame_id, rospy.Time(0))
-        target_pose = geometry_msgs.msg.Pose(translation, rotation)
-        target_pose.position.x += req.target.point.x
-        target_pose.position.y += req.target.point.y
-        target_pose.position.z += req.target.point.z
+        target_pose = Pose(translation, rotation)
+        print(str(target_pose))
+        target_pose.position = [target_pose.position[0] + req.target.point.x,
+                                target_pose.position[1] + req.target.point.y,
+                                target_pose.position[2] + req.target.point.z]
+
         rospy.loginfo(
             "Target current pose in " + str(self.parameters["global_frame"]) + " frame:\n\r" + str(target_pose))
 
         self.tfListener.waitForTransform(self.parameters["global_frame"], self.parameters["robot_footprint"],
                                          rospy.Time(0), rospy.Duration(2.0))
-        (translation, rotation) = self.tfListener.lookupTransform(self.parameters["fixed_frame"],
+        (translation, rotation) = self.tfListener.lookupTransform(self.parameters["global_frame"],
                                                                   self.parameters["robot_footprint"], rospy.Time(0))
         robot_pose = geometry_msgs.msg.Pose(translation, rotation)
-        rospy.loginfo("Robot current pose in " + str(self.parameters["fixed_frame"]) + " frame :\n\r" + str(robot_pose))
+        rospy.loginfo("Robot current pose in " + str(self.parameters["global_frame"]) + " frame :\n\r" + str(robot_pose))
         # we work in radians
         alpha_relative_to_direction = math.radians(req.alpha)
         # first we compute the z rot to have the base x axis aligned with the direction from human_base to target
@@ -101,7 +102,7 @@ class PointingPlannerSrv(object):
         result_pose.pose.orientation.y = q[1]
         result_pose.pose.orientation.z = q[2]
         result_pose.pose.orientation.w = q[3]
-        result_pose.header.frame_id = self.parameters["fixed_frame"]
+        result_pose.header.frame_id = self.parameters["global_frame"]
         result_pose.header.stamp = rospy.Time.now()
         rospy.loginfo("Result orientation :\n\r" + str(result_pose.pose.orientation))
         self.publishers["result_pose"].publish(result_pose)
