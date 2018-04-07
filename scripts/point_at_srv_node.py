@@ -38,8 +38,8 @@ class PointAtSrv(object):
 
         self.current_situations_map = {}
 
-    def start_n1_situation(self, timeline, predicate, subject_name, isevent=False):
-        description = predicate + "(" + subject_name + ")"
+    def start_n2_situation(self, timeline, predicate, subject_name, object_name, isevent=False):
+        description = predicate + "(" + subject_name + "," + object_name + ")"
         sit = Situation(desc=description)
         sit.starttime = time.time()
         if isevent:
@@ -49,14 +49,14 @@ class PointAtSrv(object):
         timeline.update(sit)
         return sit.id
 
-    def end_n1_situation(self, timeline, predicate, subject_name):
-        description = predicate + "(" + subject_name + ")"
+    def end_n2_situation(self, timeline, predicate, subject_name, object_name):
+        description = predicate + "(" + subject_name + "," + object_name + ")"
         sit = self.current_situations_map[description]
         self.log_pub["situation_log"].publish("END " + description)
         try:
             timeline.end(sit)
         except Exception as e:
-            rospy.logwarn("[robot_monitor] Exception occurred : " + str(e))
+            rospy.logwarn("[point_at_srv] Exception occurred : " + str(e))
 
     def handle_point_at(self, req):
         # First version using naoqi
@@ -70,9 +70,9 @@ class PointAtSrv(object):
             req.point.point.z += translation[2]
             effector = "LArm" if req.point.point.y > 0.0 else "RArm"
             target = Point(req.point.point.x, req.point.point.y, req.point.point.z)
-            self.start_n1_situation(self.world.timeline, "moving", "robot")
+            self.start_n2_situation(self.world.timeline, "isMovingFrom", "robot", "map")
             self.services_proxy["point_at"](effector, target, 0, POINT_AT_MAX_SPEED)
-            self.end_n1_situation(self.world.timeline, "moving", "robot")
+            self.end_n2_situation(self.world.timeline, "isMovingFrom", "robot", "map")
             self.publishers["result_point"].publish(req.point)
             return True
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException), e:

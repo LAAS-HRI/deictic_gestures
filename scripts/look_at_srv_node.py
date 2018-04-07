@@ -40,8 +40,8 @@ class LookAtSrv(object):
 
         self.current_situations_map = {}
 
-    def start_n1_situation(self, timeline, predicate, subject_name, isevent=False):
-        description = predicate + "(" + subject_name + ")"
+    def start_n2_situation(self, timeline, predicate, subject_name, object_name, isevent=False):
+        description = predicate + "(" + subject_name + "," + object_name + ")"
         sit = Situation(desc=description)
         sit.starttime = time.time()
         if isevent:
@@ -51,14 +51,14 @@ class LookAtSrv(object):
         timeline.update(sit)
         return sit.id
 
-    def end_n1_situation(self, timeline, predicate, subject_name):
-        description = predicate + "(" + subject_name + ")"
+    def end_n2_situation(self, timeline, predicate, subject_name, object_name):
+        description = predicate + "(" + subject_name + "," + object_name + ")"
         sit = self.current_situations_map[description]
         self.log_pub["situation_log"].publish("END " + description)
         try:
             timeline.end(sit)
         except Exception as e:
-            rospy.logwarn("[robot_monitor] Exception occurred : " + str(e))
+            rospy.logwarn("[point_at_srv] Exception occurred : " + str(e))
 
     def handle_look_at(self, req):
         # First version using naoqi
@@ -72,9 +72,9 @@ class LookAtSrv(object):
             self.services_proxy["stop_tracker"]()
             self.publishers["result_point"].publish(req.point)
             target = Point(req.point.point.x, req.point.point.y, req.point.point.z)
-            self.start_n1_situation(self.world.timeline, "moving", "robot")
+            self.start_n2_situation(self.world.timeline, "isMovingFrom", "robot", "map")
             self.services_proxy["look_at"](target, 0, LOOK_AT_MAX_SPEED, 0)
-            self.end_n1_situation(self.world.timeline, "moving", "robot")
+            self.end_n2_situation(self.world.timeline, "isMovingFrom", "robot", "map")
             return True
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException), e:
             rospy.logerr("[look_at_srv] Exception occurred :" + str(e))
