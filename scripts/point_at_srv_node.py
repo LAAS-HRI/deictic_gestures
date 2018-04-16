@@ -34,26 +34,33 @@ class PointAtSrv(object):
         self.publishers = {
             "result_point": rospy.Publisher('/deictic_gestures/pointing_point', PointStamped, queue_size=5)}
 
-        self.log_pub = {"situation_log": rospy.Publisher("look_at_srv/log", String, queue_size=5)}
+        self.log_pub = {"isPointingAt": rospy.Publisher("predicates_log/lookingat", String, queue_size=5),
+                        "isMovingFrom": rospy.Publisher("predicates_log/movingfrom", String, queue_size=5)}
 
         self.current_situations_map = {}
 
-    def start_n2_situation(self, timeline, predicate, subject_name, object_name, isevent=False):
-        description = predicate + "(" + subject_name + "," + object_name + ")"
+    def start_predicate(self, timeline, predicate, subject_name, object_name=None, isevent=False):
+        if object_name is None:
+            description = predicate + "(" + subject_name + ")"
+        else:
+            description = predicate + "(" + subject_name + "," + object_name + ")"
         sit = Situation(desc=description)
         sit.starttime = time.time()
         if isevent:
             sit.endtime = sit.starttime
         self.current_situations_map[description] = sit
-        self.log_pub["situation_log"].publish("START " + description)
+        self.log_pub[predicate].publish("START " + description)
         timeline.update(sit)
         return sit.id
 
-    def end_n2_situation(self, timeline, predicate, subject_name, object_name):
-        description = predicate + "(" + subject_name + "," + object_name + ")"
-        sit = self.current_situations_map[description]
-        self.log_pub["situation_log"].publish("END " + description)
+    def end_predicate(self, timeline, predicate, subject_name, object_name=None):
+        if object_name is None:
+            description = predicate + "(" + subject_name + ")"
+        else:
+            description = predicate + "(" + subject_name + "," + object_name + ")"
         try:
+            sit = self.current_situations_map[description]
+            self.log_pub[predicate].publish("END " + description)
             timeline.end(sit)
         except Exception as e:
             rospy.logwarn("[point_at_srv] Exception occurred : " + str(e))
@@ -70,9 +77,11 @@ class PointAtSrv(object):
             req.point.point.z += translation[2]
             effector = "LArm" if req.point.point.y > 0.0 else "RArm"
             target = Point(req.point.point.x, req.point.point.y, req.point.point.z)
-            self.start_n2_situation(self.world.timeline, "isMovingFrom", "robot", "map")
+            self.start_predicate(self.world.timeline, "isMoving", "robot")
+            self.start_predicate(self.world.timeline, "isPointingAt", "robot", object_name=req.point.header.frame_id)
             self.services_proxy["point_at"](effector, target, 0, POINT_AT_MAX_SPEED)
-            self.end_n2_situation(self.world.timeline, "isMovingFrom", "robot", "map")
+            self.end_predicate(self.world.timeline, "isPointingAt", "robot", object_name=req.point.header.frame_id)
+            self.end_predicate(self.world.timeline, "isMoving", "robot")
             self.publishers["result_point"].publish(req.point)
             return True
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException), e:

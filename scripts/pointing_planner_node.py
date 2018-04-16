@@ -110,7 +110,7 @@ class PointingPlannerSrv(object):
 
 
 if __name__ == '__main__':
-    rospy.init_node('pointing_planner')
+    rospy.init_node('pointing_config')
     srv = PointingPlannerSrv()
     rospy.spin()
     exit(0)

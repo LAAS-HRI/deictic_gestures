@@ -1,8 +1,8 @@
 <launch>
 
-    <node pkg="deictic_gestures" type="look_at_srv_node.py" name="look_at_srv" args="base" output="screen"/>
-    <node pkg="deictic_gestures" type="point_at_srv_node.py" name="point_at_srv" args="base" output="screen"/>
-    <node pkg="deictic_gestures" type="pointing_planner_node.py" name="pointing_planner" args="base" output="screen"/>
+    <node pkg="deictic_gestures" type="look_at_srv_node.py" name="look_at_srv" args="base" output="screen" respawn="true"/>
+    <node pkg="deictic_gestures" type="point_at_srv_node.py" name="point_at_srv" args="base" output="screen" respawn="true"/>
+    <node pkg="deictic_gestures" type="pointing_planner_node.py" name="pointing_config" args="base" output="screen" respawn="true"/>
 
     <rosparam command="load" file="$(find deictic_gestures)/params/services.yaml" />
 
