@@ -34,8 +34,8 @@ class PointAtSrv(object):
         self.publishers = {
             "result_point": rospy.Publisher('/deictic_gestures/pointing_point', PointStamped, queue_size=5)}
 
-        self.log_pub = {"isPointingAt": rospy.Publisher("predicates_log/lookingat", String, queue_size=5),
-                        "isMovingFrom": rospy.Publisher("predicates_log/movingfrom", String, queue_size=5)}
+        self.log_pub = {"isPointingAt": rospy.Publisher("predicates_log/pointingat", String, queue_size=5),
+                        "isMoving": rospy.Publisher("predicates_log/moving", String, queue_size=5)}
 
         self.current_situations_map = {}
 
