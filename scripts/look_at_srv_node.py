@@ -5,6 +5,7 @@ import rospy
 import tf
 import sys
 import argparse
+import numpy
 from std_msgs.msg import String
 from std_srvs.srv import Empty
 from geometry_msgs.msg import Point, PointStamped
@@ -12,8 +13,15 @@ from nao_interaction_msgs.srv import TrackerLookAt
 from deictic_gestures.srv import LookAt
 import underworlds
 from underworlds.types import Situation
+from underworlds.helpers.transformations import translation_matrix, quaternion_matrix
 
-LOOK_AT_MAX_SPEED = 0.6
+LOOK_AT_MAX_SPEED = 0.3
+
+def transformation_matrix(t, q):
+    translation_mat = translation_matrix(t)
+    rotation_mat = quaternion_matrix(q)
+    return numpy.dot(translation_mat, rotation_mat)
+
 
 class LookAtSrv(object):
     def __init__(self, ctx, world):
@@ -73,15 +81,27 @@ class LookAtSrv(object):
         try:
             self.tfListener.waitForTransform("/torso", req.point.header.frame_id, rospy.Time(0), rospy.Duration(2.0))
             (translation, rotation) = self.tfListener.lookupTransform('/torso', req.point.header.frame_id, rospy.Time(0))
-            req.point.point.x += translation[0]
-            req.point.point.y += translation[1]
-            req.point.point.z += translation[2]
+            #self.publishers["result_point"].publish(req.point)
+
+            t = transformation_matrix(translation, rotation)
+            rospy.logwarn(t)
+
+            p = numpy.atleast_2d([req.point.point.x, req.point.point.y, req.point.point.z, 1]).transpose()
+
+            rospy.logwarn(p)
+            new_p = numpy.dot(t, p)
+
+            rospy.logwarn(new_p)
+
+            req.point.point.x = new_p[0, 0]
+            req.point.point.y = new_p[1, 0]
+            req.point.point.z = new_p[2, 0]
+
             self.services_proxy["stop_tracker"]()
-            self.publishers["result_point"].publish(req.point)
             target = Point(req.point.point.x, req.point.point.y, req.point.point.z)
             self.start_predicate(self.world.timeline, "isMoving", "robot")
             self.start_predicate(self.world.timeline, "isLookingAt", "robot", object_name=req.point.header.frame_id)
-            self.services_proxy["look_at"](target, 0, LOOK_AT_MAX_SPEED, 0)
+            self.services_proxy["look_at"](target, 0, LOOK_AT_MAX_SPEED, True)
             self.end_predicate(self.world.timeline, "isLookingAt", "robot", object_name=req.point.header.frame_id)
             self.end_predicate(self.world.timeline, "isMoving", "robot")
             return True

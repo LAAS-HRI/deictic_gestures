@@ -3,6 +3,7 @@
 import rospy
 import tf
 import sys
+import numpy
 import time
 import argparse
 from std_msgs.msg import String
@@ -12,8 +13,15 @@ from nao_interaction_msgs.srv import TrackerPointAt
 from deictic_gestures.srv import PointAt
 import underworlds
 from underworlds.types import Situation
+from underworlds.helpers.transformations import translation_matrix, quaternion_matrix
 
 POINT_AT_MAX_SPEED = 0.6
+
+
+def transformation_matrix(t, q):
+    translation_mat = translation_matrix(t)
+    rotation_mat = quaternion_matrix(q)
+    return numpy.dot(translation_mat, rotation_mat)
 
 class PointAtSrv(object):
     def __init__(self, ctx, world):
@@ -32,7 +40,8 @@ class PointAtSrv(object):
                            "point_at_max_speed": rospy.get_param("point_at_max_speed", POINT_AT_MAX_SPEED)}
 
         self.publishers = {
-            "result_point": rospy.Publisher('/deictic_gestures/pointing_point', PointStamped, queue_size=5)}
+            "result_point": rospy.Publisher('/deictic_gestures/pointing_point_result', PointStamped, queue_size=5),
+            "input_point": rospy.Publisher('/deictic_gestures/pointing_point_input', PointStamped, queue_size=5)}
 
         self.log_pub = {"isPointingAt": rospy.Publisher("predicates_log/pointingat", String, queue_size=5),
                         "isMoving": rospy.Publisher("predicates_log/moving", String, queue_size=5)}
@@ -69,12 +78,29 @@ class PointAtSrv(object):
         # First version using naoqi
         self.parameters["point_at_max_speed"] = rospy.get_param("point_at_max_speed", POINT_AT_MAX_SPEED)
         try:
-            self.tfListener.waitForTransform("/torso", req.point.header.frame_id, rospy.Time(0), rospy.Duration(1.0))
-            (translation, rotation) = self.tfListener.lookupTransform('/torso', req.point.header.frame_id,
+            self.publishers["input_point"].publish(req.point)
+            self.tfListener.waitForTransform("/base_link", req.point.header.frame_id, rospy.Time(0), rospy.Duration(1.0))
+            (translation, rotation) = self.tfListener.lookupTransform("/base_link", req.point.header.frame_id,
                                                                       rospy.Time(0))
-            req.point.point.x += translation[0]
-            req.point.point.y += translation[1]
-            req.point.point.z += translation[2]
+            #self.publishers["result_point"].publish(req.point)
+
+            t = transformation_matrix(translation, rotation)
+            rospy.logwarn(t)
+
+            p = numpy.atleast_2d([req.point.point.x, req.point.point.y, req.point.point.z, 1]).transpose()
+
+            rospy.logwarn(p)
+            new_p = numpy.dot(t, p)
+
+            rospy.logwarn(new_p)
+
+            req.point.point.x = new_p[0,0]
+            req.point.point.y = new_p[1,0]
+            req.point.point.z = new_p[2,0]
+
+            req.point.header.frame_id = "/base_link"
+            #self.publishers["result_point"].publish(req.point)
+
             effector = "LArm" if req.point.point.y > 0.0 else "RArm"
             target = Point(req.point.point.x, req.point.point.y, req.point.point.z)
             self.start_predicate(self.world.timeline, "isMoving", "robot")
@@ -82,7 +108,7 @@ class PointAtSrv(object):
             self.services_proxy["point_at"](effector, target, 0, POINT_AT_MAX_SPEED)
             self.end_predicate(self.world.timeline, "isPointingAt", "robot", object_name=req.point.header.frame_id)
             self.end_predicate(self.world.timeline, "isMoving", "robot")
-            self.publishers["result_point"].publish(req.point)
+
             return True
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException), e:
             rospy.logerr("[point_at_srv] Exception occured :" + str(e))
