@@ -15,7 +15,7 @@ import underworlds
 from underworlds.types import Situation
 from underworlds.helpers.transformations import translation_matrix, quaternion_matrix
 
-LOOK_AT_MAX_SPEED = 0.3
+LOOK_AT_MAX_SPEED = 0.7
 
 def transformation_matrix(t, q):
     translation_mat = translation_matrix(t)
@@ -49,6 +49,8 @@ class LookAtSrv(object):
 
         self.current_situations_map = {}
 
+        self.current_lookat_frame = None
+
     def start_predicate(self, timeline, predicate, subject_name, object_name=None, isevent=False):
         if object_name is None:
             description = predicate + "(" + subject_name + ")"
@@ -79,32 +81,38 @@ class LookAtSrv(object):
         # First version using naoqi
         self.parameters["look_at_max_speed"] = rospy.get_param("look_at_max_speed", LOOK_AT_MAX_SPEED)
         try:
-            self.tfListener.waitForTransform("/torso", req.point.header.frame_id, rospy.Time(0), rospy.Duration(2.0))
-            (translation, rotation) = self.tfListener.lookupTransform('/torso', req.point.header.frame_id, rospy.Time(0))
-            #self.publishers["result_point"].publish(req.point)
+            #self.tfListener.waitForTransform("/base_footprint", req.point.header.frame_id, rospy.Time(0), rospy.Duration(0.3))
+            if self.tfListener.canTransform("/torso",req.point.header.frame_id, rospy.Time()):
+                (translation, rotation) = self.tfListener.lookupTransform('/torso', req.point.header.frame_id, rospy.Time(0))
+                #self.publishers["result_point"].publish(req.point)
 
-            t = transformation_matrix(translation, rotation)
-            rospy.logwarn(t)
+                t = transformation_matrix(translation, rotation)
+                #rospy.logwarn(t)
 
-            p = numpy.atleast_2d([req.point.point.x, req.point.point.y, req.point.point.z, 1]).transpose()
+                p = numpy.atleast_2d([req.point.point.x, req.point.point.y, req.point.point.z, 1]).transpose()
 
-            rospy.logwarn(p)
-            new_p = numpy.dot(t, p)
+                #rospy.logwarn(p)
+                new_p = numpy.dot(t, p)
 
-            rospy.logwarn(new_p)
+                #rospy.logwarn(new_p)
 
-            req.point.point.x = new_p[0, 0]
-            req.point.point.y = new_p[1, 0]
-            req.point.point.z = new_p[2, 0]
-
-            self.services_proxy["stop_tracker"]()
-            target = Point(req.point.point.x, req.point.point.y, req.point.point.z)
-            self.start_predicate(self.world.timeline, "isMoving", "robot")
-            self.start_predicate(self.world.timeline, "isLookingAt", "robot", object_name=req.point.header.frame_id)
-            self.services_proxy["look_at"](target, 0, LOOK_AT_MAX_SPEED, True)
-            self.end_predicate(self.world.timeline, "isLookingAt", "robot", object_name=req.point.header.frame_id)
-            self.end_predicate(self.world.timeline, "isMoving", "robot")
-            return True
+                self.services_proxy["stop_tracker"]()
+                target = Point(new_p[0, 0], new_p[1, 0], new_p[2, 0])
+                self.start_predicate(self.world.timeline, "isMoving", "robot")
+                if req.point.header.frame_id != self.current_lookat_frame:
+                    if self.current_lookat_frame is not None:
+                        self.end_predicate(self.world.timeline, "isLookingAt", "robot", object_name=self.current_lookat_frame)
+                    self.start_predicate(self.world.timeline, "isLookingAt", "robot", object_name=req.point.header.frame_id)
+                    self.current_lookat_frame = req.point.header.frame_id
+                self.services_proxy["look_at"](target, 0, LOOK_AT_MAX_SPEED, False)
+                #self.end_predicate(self.world.timeline, "isLookingAt", "robot", object_name=req.point.header.frame_id)
+                self.end_predicate(self.world.timeline, "isMoving", "robot")
+                return True
+            else:
+                if self.current_lookat_frame is not None:
+                    self.end_predicate(self.world.timeline, "isLookingAt", "robot", object_name=self.current_lookat_frame)
+                    self.current_lookat_frame = None
+                return False
         except Exception as e:
             rospy.logerr("[look_at_srv] Exception occurred :" + str(e))
             return False

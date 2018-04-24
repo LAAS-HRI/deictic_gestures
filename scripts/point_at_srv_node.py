@@ -15,7 +15,7 @@ import underworlds
 from underworlds.types import Situation
 from underworlds.helpers.transformations import translation_matrix, quaternion_matrix
 
-POINT_AT_MAX_SPEED = 0.6
+POINT_AT_MAX_SPEED = 0.7
 
 
 def transformation_matrix(t, q):
@@ -79,37 +79,30 @@ class PointAtSrv(object):
         self.parameters["point_at_max_speed"] = rospy.get_param("point_at_max_speed", POINT_AT_MAX_SPEED)
         try:
             self.publishers["input_point"].publish(req.point)
-            self.tfListener.waitForTransform("/base_link", req.point.header.frame_id, rospy.Time(0), rospy.Duration(1.0))
-            (translation, rotation) = self.tfListener.lookupTransform("/base_link", req.point.header.frame_id,
-                                                                      rospy.Time(0))
-            #self.publishers["result_point"].publish(req.point)
+            if self.tfListener.canTransform("/torso", req.point.header.frame_id, rospy.Time()):
+            #self.tfListener.waitForTransform("/torso", req.point.header.frame_id, rospy.Time(0), rospy.Duration(1.0))
+                (translation, rotation) = self.tfListener.lookupTransform("/base_link", req.point.header.frame_id,
+                                                                          rospy.Time(0))
+                #self.publishers["result_point"].publish(req.point)
 
-            t = transformation_matrix(translation, rotation)
-            rospy.logwarn(t)
+                t = transformation_matrix(translation, rotation)
+                #rospy.logwarn(t)
 
-            p = numpy.atleast_2d([req.point.point.x, req.point.point.y, req.point.point.z, 1]).transpose()
+                p = numpy.atleast_2d([req.point.point.x, req.point.point.y, req.point.point.z, 1]).transpose()
 
-            rospy.logwarn(p)
-            new_p = numpy.dot(t, p)
+                #rospy.logwarn(p)
+                new_p = numpy.dot(t, p)
 
-            rospy.logwarn(new_p)
+                effector = "LArm" if new_p[1, 0] > 0.0 else "RArm"
+                target = Point(new_p[0, 0], new_p[1, 0], new_p[2, 0])
+                self.start_predicate(self.world.timeline, "isMoving", "robot")
+                self.start_predicate(self.world.timeline, "isPointingAt", "robot", object_name=req.point.header.frame_id)
+                self.services_proxy["point_at"](effector, target, 0, POINT_AT_MAX_SPEED)
+                self.end_predicate(self.world.timeline, "isPointingAt", "robot", object_name=req.point.header.frame_id)
+                self.end_predicate(self.world.timeline, "isMoving", "robot")
 
-            req.point.point.x = new_p[0,0]
-            req.point.point.y = new_p[1,0]
-            req.point.point.z = new_p[2,0]
-
-            req.point.header.frame_id = "/base_link"
-            #self.publishers["result_point"].publish(req.point)
-
-            effector = "LArm" if req.point.point.y > 0.0 else "RArm"
-            target = Point(req.point.point.x, req.point.point.y, req.point.point.z)
-            self.start_predicate(self.world.timeline, "isMoving", "robot")
-            self.start_predicate(self.world.timeline, "isPointingAt", "robot", object_name=req.point.header.frame_id)
-            self.services_proxy["point_at"](effector, target, 0, POINT_AT_MAX_SPEED)
-            self.end_predicate(self.world.timeline, "isPointingAt", "robot", object_name=req.point.header.frame_id)
-            self.end_predicate(self.world.timeline, "isMoving", "robot")
-
-            return True
+                return True
+            return False
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException), e:
             rospy.logerr("[point_at_srv] Exception occured :" + str(e))
             return False
