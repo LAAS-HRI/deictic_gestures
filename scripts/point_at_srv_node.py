@@ -11,6 +11,7 @@ from std_srvs.srv import Empty
 from geometry_msgs.msg import PointStamped, Point
 from nao_interaction_msgs.srv import TrackerPointAt
 from deictic_gestures.srv import PointAt
+from naoqi import ALProxy
 import underworlds
 from underworlds.types import Situation
 from underworlds.helpers.transformations import translation_matrix, quaternion_matrix
@@ -24,8 +25,9 @@ def transformation_matrix(t, q):
     return numpy.dot(translation_mat, rotation_mat)
 
 class PointAtSrv(object):
-    def __init__(self, ctx, world):
+    def __init__(self, ctx, world, nao_ip, nao_port):
         self.world = ctx.worlds[world]
+        self.tracker = ALProxy("ALTracker", nao_ip, nao_port)
         rospy.loginfo("waiting for service /naoqi_driver/tracker/point_at")
         rospy.wait_for_service("/naoqi_driver/tracker/point_at")
         self.services_proxy = {
@@ -80,27 +82,17 @@ class PointAtSrv(object):
         try:
             self.publishers["input_point"].publish(req.point)
             if self.tfListener.canTransform("/torso", req.point.header.frame_id, rospy.Time()):
-            #self.tfListener.waitForTransform("/torso", req.point.header.frame_id, rospy.Time(0), rospy.Duration(1.0))
                 (translation, rotation) = self.tfListener.lookupTransform("/base_link", req.point.header.frame_id,
                                                                           rospy.Time(0))
-                #self.publishers["result_point"].publish(req.point)
-
                 t = transformation_matrix(translation, rotation)
-                #rospy.logwarn(t)
-
                 p = numpy.atleast_2d([req.point.point.x, req.point.point.y, req.point.point.z, 1]).transpose()
-
-                #rospy.logwarn(p)
                 new_p = numpy.dot(t, p)
-
                 effector = "LArm" if new_p[1, 0] > 0.0 else "RArm"
-                target = Point(new_p[0, 0], new_p[1, 0], new_p[2, 0])
                 self.start_predicate(self.world.timeline, "isMoving", "robot")
                 self.start_predicate(self.world.timeline, "isPointingAt", "robot", object_name=req.point.header.frame_id)
-                self.services_proxy["point_at"](effector, target, 0, POINT_AT_MAX_SPEED)
+                self.tracker.pointAt(effector,[new_p[0, 0], new_p[1, 0], new_p[2, 0]], 0, POINT_AT_MAX_SPEED)
                 self.end_predicate(self.world.timeline, "isPointingAt", "robot", object_name=req.point.header.frame_id)
                 self.end_predicate(self.world.timeline, "isMoving", "robot")
-
                 return True
             return False
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException), e:
@@ -114,10 +106,12 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Handle look at")
     parser.add_argument("world", help="The world where to write the situation associated to moving")
+    parser.add_argument("--nao_ip", default="mummer-eth0.laas.fr", help="The robot IP")
+    parser.add_argument("--nao_port", default="9559", help="The robot port")
     args = parser.parse_args()
 
     rospy.init_node('point_at_srv')
-    with underworlds.Context("uwds_database_ros_bridge") as ctx:  # Here we connect to the server
-        PointAtSrv(ctx, args.world)
+    with underworlds.Context("point_at_srv") as ctx:  # Here we connect to the server
+        PointAtSrv(ctx, args.world, args.nao_ip, args.nao_port)
         rospy.spin()
         exit(0)

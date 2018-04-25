@@ -5,17 +5,20 @@ import rospy
 import tf
 import sys
 import argparse
+import math
 import numpy
 from std_msgs.msg import String
 from std_srvs.srv import Empty
 from geometry_msgs.msg import Point, PointStamped
 from nao_interaction_msgs.srv import TrackerLookAt
+from naoqi import ALProxy
 from deictic_gestures.srv import LookAt
 import underworlds
 from underworlds.types import Situation
 from underworlds.helpers.transformations import translation_matrix, quaternion_matrix
 
-LOOK_AT_MAX_SPEED = 0.7
+LOOK_AT_MAX_SPEED = 0.4
+LOOK_AT_MAX_ANGLE = 60
 
 def transformation_matrix(t, q):
     translation_mat = translation_matrix(t)
@@ -24,15 +27,17 @@ def transformation_matrix(t, q):
 
 
 class LookAtSrv(object):
-    def __init__(self, ctx, world):
+    def __init__(self, ctx, world, nao_ip, nao_port):
         self.world = ctx.worlds[world]
+        self.tracker = ALProxy("ALTracker", nao_ip, nao_port)
+        self.motion = ALProxy("ALMotion", nao_ip, nao_port)
         rospy.loginfo("waiting for service /naoqi_driver/tracker/look_at")
         rospy.wait_for_service("/naoqi_driver/tracker/look_at")
         rospy.loginfo("waiting for service /naoqi_driver/tracker/stop_tracker")
         rospy.wait_for_service("/naoqi_driver/tracker/stop_tracker")
-        self.services_proxy = {
-            "look_at": rospy.ServiceProxy("naoqi_driver/tracker/look_at", TrackerLookAt),
-            "stop_tracker": rospy.ServiceProxy("/naoqi_driver/tracker/stop_tracker", Empty)}
+        #self.services_proxy = {
+        #    "look_at": rospy.ServiceProxy("naoqi_driver/tracker/look_at", TrackerLookAt),
+        #    "stop_tracker": rospy.ServiceProxy("/naoqi_driver/tracker/stop_tracker", Empty)}
 
         self.services = {"look_at": rospy.Service('/deictic_gestures/look_at', LookAt, self.handle_look_at)}
 
@@ -81,37 +86,34 @@ class LookAtSrv(object):
         # First version using naoqi
         self.parameters["look_at_max_speed"] = rospy.get_param("look_at_max_speed", LOOK_AT_MAX_SPEED)
         try:
-            #self.tfListener.waitForTransform("/base_footprint", req.point.header.frame_id, rospy.Time(0), rospy.Duration(0.3))
-            if self.tfListener.canTransform("/torso",req.point.header.frame_id, rospy.Time()):
+            if self.tfListener.canTransform("/torso", req.point.header.frame_id, rospy.Time()):
                 (translation, rotation) = self.tfListener.lookupTransform('/torso', req.point.header.frame_id, rospy.Time(0))
-                #self.publishers["result_point"].publish(req.point)
-
                 t = transformation_matrix(translation, rotation)
-                #rospy.logwarn(t)
-
                 p = numpy.atleast_2d([req.point.point.x, req.point.point.y, req.point.point.z, 1]).transpose()
-
-                #rospy.logwarn(p)
                 new_p = numpy.dot(t, p)
-
-                #rospy.logwarn(new_p)
-
-                self.services_proxy["stop_tracker"]()
-                target = Point(new_p[0, 0], new_p[1, 0], new_p[2, 0])
+                angle = math.atan2(new_p[1, 0], new_p[0, 0])
                 self.start_predicate(self.world.timeline, "isMoving", "robot")
+                if math.degrees(math.fabs(angle)) > LOOK_AT_MAX_ANGLE:
+                    self.motion.moveTo(0, 0, angle)
+                    (translation, rotation) = self.tfListener.lookupTransform('/torso', req.point.header.frame_id,
+                                                                              rospy.Time(0))
+                    t = transformation_matrix(translation, rotation)
+                    p = numpy.atleast_2d([req.point.point.x, req.point.point.y, req.point.point.z, 1]).transpose()
+                    new_p = numpy.dot(t, p)
                 if req.point.header.frame_id != self.current_lookat_frame:
                     if self.current_lookat_frame is not None:
                         self.end_predicate(self.world.timeline, "isLookingAt", "robot", object_name=self.current_lookat_frame)
                     self.start_predicate(self.world.timeline, "isLookingAt", "robot", object_name=req.point.header.frame_id)
                     self.current_lookat_frame = req.point.header.frame_id
-                self.services_proxy["look_at"](target, 0, LOOK_AT_MAX_SPEED, False)
-                #self.end_predicate(self.world.timeline, "isLookingAt", "robot", object_name=req.point.header.frame_id)
+                self.tracker.stopTracker()
+                self.tracker.lookAt([new_p[0, 0], new_p[1, 0], new_p[2, 0]], LOOK_AT_MAX_SPEED, False)
                 self.end_predicate(self.world.timeline, "isMoving", "robot")
                 return True
             else:
                 if self.current_lookat_frame is not None:
-                    self.end_predicate(self.world.timeline, "isLookingAt", "robot", object_name=self.current_lookat_frame)
-                    self.current_lookat_frame = None
+                    if req.point.header.frame_id == self.current_lookat_frame:
+                        self.end_predicate(self.world.timeline, "isLookingAt", "robot", object_name=self.current_lookat_frame)
+                        self.current_lookat_frame = None
                 return False
         except Exception as e:
             rospy.logerr("[look_at_srv] Exception occurred :" + str(e))
@@ -123,10 +125,12 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Handle look at")
     parser.add_argument("world", help="The world where to write the situation associated to moving")
+    parser.add_argument("--nao_ip", default="mummer-eth0.laas.fr", help="The robot IP")
+    parser.add_argument("--nao_port", default="9559", help="The robot port")
     args = parser.parse_args()
 
     rospy.init_node('look_at_srv')
     with underworlds.Context("look_at_srv") as ctx:  # Here we connect to the server
-        LookAtSrv(ctx, args.world)
+        LookAtSrv(ctx, args.world, args.nao_ip, int(args.nao_port))
         rospy.spin()
         exit(0)
