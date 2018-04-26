@@ -6,12 +6,9 @@ import tf
 import sys
 import argparse
 import math
-import re
 import numpy
 from std_msgs.msg import String
-from std_srvs.srv import Empty
 from geometry_msgs.msg import Point, PointStamped
-from nao_interaction_msgs.srv import TrackerLookAt
 from naoqi import ALProxy
 from deictic_gestures.srv import LookAt
 import underworlds
@@ -33,13 +30,6 @@ class LookAtSrv(object):
         self.world = ctx.worlds[world]
         self.tracker = ALProxy("ALTracker", nao_ip, nao_port)
         self.motion = ALProxy("ALMotion", nao_ip, nao_port)
-        rospy.loginfo("waiting for service /naoqi_driver/tracker/look_at")
-        rospy.wait_for_service("/naoqi_driver/tracker/look_at")
-        rospy.loginfo("waiting for service /naoqi_driver/tracker/stop_tracker")
-        rospy.wait_for_service("/naoqi_driver/tracker/stop_tracker")
-        #self.services_proxy = {
-        #    "look_at": rospy.ServiceProxy("naoqi_driver/tracker/look_at", TrackerLookAt),
-        #    "stop_tracker": rospy.ServiceProxy("/naoqi_driver/tracker/stop_tracker", Empty)}
 
         self.services = {"look_at": rospy.Service('/deictic_gestures/look_at', LookAt, self.handle_look_at)}
 

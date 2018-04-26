@@ -7,9 +7,7 @@ import numpy
 import time
 import argparse
 from std_msgs.msg import String
-from std_srvs.srv import Empty
 from geometry_msgs.msg import PointStamped, Point
-from nao_interaction_msgs.srv import TrackerPointAt
 from deictic_gestures.srv import PointAt
 from naoqi import ALProxy
 import underworlds
@@ -28,10 +26,6 @@ class PointAtSrv(object):
     def __init__(self, ctx, world, nao_ip, nao_port):
         self.world = ctx.worlds[world]
         self.tracker = ALProxy("ALTracker", nao_ip, nao_port)
-        rospy.loginfo("waiting for service /naoqi_driver/tracker/point_at")
-        rospy.wait_for_service("/naoqi_driver/tracker/point_at")
-        self.services_proxy = {
-            "point_at": rospy.ServiceProxy("naoqi_driver/tracker/point_at", TrackerPointAt)}
 
         self.services = {"point_at": rospy.Service('/deictic_gestures/point_at', PointAt,
                                                    self.handle_point_at)}
