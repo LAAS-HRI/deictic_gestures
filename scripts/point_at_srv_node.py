@@ -112,6 +112,6 @@ if __name__ == '__main__':
 
     rospy.init_node('point_at_srv')
     with underworlds.Context("point_at_srv") as ctx:  # Here we connect to the server
-        PointAtSrv(ctx, args.world, args.nao_ip, args.nao_port)
+        PointAtSrv(ctx, args.world, args.nao_ip, int(args.nao_port))
         rospy.spin()
         exit(0)

@@ -6,6 +6,7 @@ import tf
 import sys
 import argparse
 import math
+import re
 import numpy
 from std_msgs.msg import String
 from std_srvs.srv import Empty
@@ -19,6 +20,7 @@ from underworlds.helpers.transformations import translation_matrix, quaternion_m
 
 LOOK_AT_MAX_SPEED = 0.4
 LOOK_AT_MAX_ANGLE = 60
+MIN_DIST_MOVE = 0.35
 
 def transformation_matrix(t, q):
     translation_mat = translation_matrix(t)
@@ -55,6 +57,7 @@ class LookAtSrv(object):
         self.current_situations_map = {}
 
         self.current_lookat_frame = None
+        self.current_lookat_point = None
 
     def start_predicate(self, timeline, predicate, subject_name, object_name=None, isevent=False):
         if object_name is None:
@@ -82,32 +85,50 @@ class LookAtSrv(object):
         except Exception as e:
             rospy.logwarn("[look_at_srv] Exception occurred : " + str(e))
 
+    def distance(self, point):
+        x = point[0]-self.current_lookat_point[0]
+        y = point[1]-self.current_lookat_point[1]
+        z = point[2]-self.current_lookat_point[2]
+        return math.sqrt(x*x+y*y+z*z)
+
     def handle_look_at(self, req):
         # First version using naoqi
         self.parameters["look_at_max_speed"] = rospy.get_param("look_at_max_speed", LOOK_AT_MAX_SPEED)
         try:
             if self.tfListener.canTransform("/torso", req.point.header.frame_id, rospy.Time()):
-                (translation, rotation) = self.tfListener.lookupTransform('/torso', req.point.header.frame_id, rospy.Time(0))
+                (translation, rotation) = self.tfListener.lookupTransform('/torso', req.point.header.frame_id, rospy.Time())
                 t = transformation_matrix(translation, rotation)
                 p = numpy.atleast_2d([req.point.point.x, req.point.point.y, req.point.point.z, 1]).transpose()
                 new_p = numpy.dot(t, p)
-                angle = math.atan2(new_p[1, 0], new_p[0, 0])
-                self.start_predicate(self.world.timeline, "isMoving", "robot")
-                if math.degrees(math.fabs(angle)) > LOOK_AT_MAX_ANGLE:
-                    self.motion.moveTo(0, 0, angle)
-                    (translation, rotation) = self.tfListener.lookupTransform('/torso', req.point.header.frame_id,
-                                                                              rospy.Time(0))
-                    t = transformation_matrix(translation, rotation)
-                    p = numpy.atleast_2d([req.point.point.x, req.point.point.y, req.point.point.z, 1]).transpose()
-                    new_p = numpy.dot(t, p)
-                if req.point.header.frame_id != self.current_lookat_frame:
-                    if self.current_lookat_frame is not None:
-                        self.end_predicate(self.world.timeline, "isLookingAt", "robot", object_name=self.current_lookat_frame)
-                    self.start_predicate(self.world.timeline, "isLookingAt", "robot", object_name=req.point.header.frame_id)
-                    self.current_lookat_frame = req.point.header.frame_id
-                self.tracker.stopTracker()
-                self.tracker.lookAt([new_p[0, 0], new_p[1, 0], new_p[2, 0]], LOOK_AT_MAX_SPEED, False)
-                self.end_predicate(self.world.timeline, "isMoving", "robot")
+                to_move = False
+                if self.current_lookat_point:
+                    dist = self.distance([new_p[1, 0], new_p[2, 0], new_p[3, 0]])
+                    if dist > MIN_DIST_MOVE:
+                        to_move = True
+                else:
+                    to_move = True
+
+                if to_move:
+                    angle = math.atan2(new_p[1, 0], new_p[0, 0])
+                    self.start_predicate(self.world.timeline, "isMoving", "robot")
+                    if math.degrees(math.fabs(angle)) > LOOK_AT_MAX_ANGLE:
+                        self.motion.moveTo(0, 0, angle)
+                        (translation, rotation) = self.tfListener.lookupTransform('/torso', req.point.header.frame_id,
+                                                                                  rospy.Time(0))
+                        t = transformation_matrix(translation, rotation)
+                        p = numpy.atleast_2d([req.point.point.x, req.point.point.y, req.point.point.z, 1]).transpose()
+                        new_p = numpy.dot(t, p)
+                    if req.point.header.frame_id != self.current_lookat_frame:
+                        if self.current_lookat_frame is not None:
+                            self.end_predicate(self.world.timeline, "isLookingAt", "robot",
+                                               object_name=self.current_lookat_frame)
+                        self.start_predicate(self.world.timeline, "isLookingAt", "robot",
+                                             object_name=req.point.header.frame_id)
+                        self.current_lookat_frame = req.point.header.frame_id
+                    self.tracker.stopTracker()
+                    self.current_lookat_point = [new_p[1, 0], new_p[2, 0], new_p[3, 0]]
+                    self.tracker.lookAt([new_p[0, 0], new_p[1, 0], new_p[2, 0]], LOOK_AT_MAX_SPEED, False)
+                    self.end_predicate(self.world.timeline, "isMoving", "robot")
                 return True
             else:
                 if self.current_lookat_frame is not None:
