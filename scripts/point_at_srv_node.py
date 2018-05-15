@@ -13,7 +13,7 @@ from deictic_gestures.srv import PointAt
 from naoqi import ALProxy
 import underworlds
 from underworlds.types import Situation
-from underworlds.helpers.transformations import translation_matrix, quaternion_matrix, euler_from_quaternion
+from tf.transformations import translation_matrix, quaternion_matrix, euler_from_quaternion, quaternion_from_euler
 
 POINT_AT_MAX_SPEED = 0.7
 
@@ -82,16 +82,19 @@ class PointAtSrv(object):
             if self.tfListener.canTransform("/torso", req.point.header.frame_id, rospy.Time()):
                 (translation, rotation) = self.tfListener.lookupTransform("/base_link", req.point.header.frame_id,
                                                                           rospy.Time())
-                yaw=math.acos(translation[0]/math.hypot(translation[0],translation[1]))
-                self.start_predicate(self.world.timeline, "isMoving", "robot")
-                if abs(yaw)>math.pi/2 :
-                    rot = math.pi/2 - yaw if yaw>math.pi/2 else -math.pi/2 - yaw
-                    self.motion.moveTo(0.,0.,rot)
-                    (translation, rotation) = self.tfListener.lookupTransform("/base_link", req.point.header.frame_id,
-                                                                              rospy.Time())
                 t = transformation_matrix(translation, rotation)
                 p = numpy.atleast_2d([req.point.point.x, req.point.point.y, req.point.point.z, 1]).transpose()
                 new_p = numpy.dot(t, p)
+
+                yaw = math.atan2(new_p[1], new_p[0])
+                self.start_predicate(self.world.timeline, "isMoving", "robot")
+                if abs(yaw) > math.pi / 2:
+                    rot = yaw - math.pi / 2 if yaw > math.pi / 2 else yaw + math.pi / 2
+                    self.motion.moveTo(0., 0., rot)
+                    time.sleep(0.5)
+                    rot_t=transformation_matrix([0,0,0],quaternion_from_euler(0,0,-rot))
+                    new_p = numpy.dot(rot_t, new_p)
+
                 effector = "LArm" if new_p[1, 0] > 0.0 else "RArm"
                 self.start_predicate(self.world.timeline, "isPointingAt", "robot", object_name=req.point.header.frame_id)
                 try:
