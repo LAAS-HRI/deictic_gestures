@@ -12,7 +12,7 @@ from deictic_gestures.srv import PointAt
 from naoqi import ALProxy
 import underworlds
 from underworlds.types import Situation
-from underworlds.helpers.transformations import translation_matrix, quaternion_matrix
+from underworlds.helpers.transformations import translation_matrix, quaternion_matrix, euler_from_quaternion
 
 POINT_AT_MAX_SPEED = 0.7
 
