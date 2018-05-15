@@ -25,6 +25,8 @@ def transformation_matrix(t, q):
 class PointAtSrv(object):
     def __init__(self, ctx, world, nao_ip, nao_port):
         self.world = ctx.worlds[world]
+        self.nao_ip = nao_ip
+        self.nao_port = nao_port
         self.tracker = ALProxy("ALTracker", nao_ip, nao_port)
 
         self.services = {"point_at": rospy.Service('/deictic_gestures/point_at', PointAt,
@@ -77,14 +79,18 @@ class PointAtSrv(object):
             self.publishers["input_point"].publish(req.point)
             if self.tfListener.canTransform("/torso", req.point.header.frame_id, rospy.Time()):
                 (translation, rotation) = self.tfListener.lookupTransform("/base_link", req.point.header.frame_id,
-                                                                          rospy.Time(0))
+                                                                          rospy.Time())
                 t = transformation_matrix(translation, rotation)
                 p = numpy.atleast_2d([req.point.point.x, req.point.point.y, req.point.point.z, 1]).transpose()
                 new_p = numpy.dot(t, p)
                 effector = "LArm" if new_p[1, 0] > 0.0 else "RArm"
                 self.start_predicate(self.world.timeline, "isMoving", "robot")
                 self.start_predicate(self.world.timeline, "isPointingAt", "robot", object_name=req.point.header.frame_id)
-                self.tracker.pointAt(effector,[new_p[0, 0], new_p[1, 0], new_p[2, 0]], 0, POINT_AT_MAX_SPEED)
+                try:
+                    self.tracker.pointAt(effector,[new_p[0, 0], new_p[1, 0], new_p[2, 0]], 0, POINT_AT_MAX_SPEED)
+                except Exception:
+                    self.tracker = ALProxy("ALTracker", self.nao_ip, self.nao_port)
+                    self.tracker.pointAt(effector, [new_p[0, 0], new_p[1, 0], new_p[2, 0]], 0, POINT_AT_MAX_SPEED)
                 self.end_predicate(self.world.timeline, "isPointingAt", "robot", object_name=req.point.header.frame_id)
                 self.end_predicate(self.world.timeline, "isMoving", "robot")
                 return True

@@ -11,13 +11,14 @@ from std_msgs.msg import String
 from geometry_msgs.msg import Point, PointStamped
 from naoqi import ALProxy
 from deictic_gestures.srv import LookAt
+from std_srvs.srv import SetBool
 import underworlds
 from underworlds.types import Situation
 from underworlds.helpers.transformations import translation_matrix, quaternion_matrix
 
-LOOK_AT_MAX_SPEED = 0.4
-LOOK_AT_MAX_ANGLE = 60
-MIN_DIST_MOVE = 0.35
+LOOK_AT_MAX_SPEED = 0.3
+LOOK_AT_MAX_ANGLE = 90
+MIN_DIST_MOVE = 0.25
 
 def transformation_matrix(t, q):
     translation_mat = translation_matrix(t)
@@ -28,10 +29,14 @@ def transformation_matrix(t, q):
 class LookAtSrv(object):
     def __init__(self, ctx, world, nao_ip, nao_port):
         self.world = ctx.worlds[world]
+        self.nao_ip = nao_ip
+        self.nao_port = nao_port
         self.tracker = ALProxy("ALTracker", nao_ip, nao_port)
         self.motion = ALProxy("ALMotion", nao_ip, nao_port)
 
         self.services = {"look_at": rospy.Service('/deictic_gestures/look_at', LookAt, self.handle_look_at)}
+
+        self.services_proxy = {"enable_monitoring": rospy.ServiceProxy('multimodal_human_monitor/global_monitoring', SetBool)}
 
         self.tfListener = tf.TransformListener()
         self.parameters = {"fixed_frame": rospy.get_param("global_frame_id", "/map"),
@@ -93,21 +98,32 @@ class LookAtSrv(object):
                 to_move = False
                 if self.current_lookat_point:
                     dist = self.distance([new_p[1, 0], new_p[2, 0], new_p[3, 0]])
-                    if dist > MIN_DIST_MOVE:
+                    if dist > MIN_DIST_MOVE or self.current_lookat_frame != req.point.header.frame_id:
                         to_move = True
                 else:
                     to_move = True
 
                 if to_move:
                     angle = math.atan2(new_p[1, 0], new_p[0, 0])
-                    self.start_predicate(self.world.timeline, "isMoving", "robot")
                     if math.degrees(math.fabs(angle)) > LOOK_AT_MAX_ANGLE:
-                        self.motion.moveTo(0, 0, angle)
-                        (translation, rotation) = self.tfListener.lookupTransform('/torso', req.point.header.frame_id,
-                                                                                  rospy.Time(0))
-                        t = transformation_matrix(translation, rotation)
-                        p = numpy.atleast_2d([req.point.point.x, req.point.point.y, req.point.point.z, 1]).transpose()
-                        new_p = numpy.dot(t, p)
+                        # try:
+                        #     self.services_proxy["enable_monitoring"](False)
+                        #     self.motion.moveTo(0, 0, angle)
+                        #     time.sleep(0.1)
+                        #     self.services_proxy["enable_monitoring"](True)
+                        # except Exception:
+                        #     self.motion = ALProxy("ALMotion", self.nao_ip, self.nao_port)
+                        #     self.services_proxy["enable_monitoring"](False)
+                        #     self.motion.moveTo(0, 0, angle)
+                        #     time.sleep(0.1)
+                        #     self.services_proxy["enable_monitoring"](True)
+                        return True
+
+                    (translation, rotation) = self.tfListener.lookupTransform('/torso', req.point.header.frame_id,
+                                                                              rospy.Time())
+                    t = transformation_matrix(translation, rotation)
+                    p = numpy.atleast_2d([req.point.point.x, req.point.point.y, req.point.point.z, 1]).transpose()
+                    new_p = numpy.dot(t, p)
                     if req.point.header.frame_id != self.current_lookat_frame:
                         if self.current_lookat_frame is not None:
                             self.end_predicate(self.world.timeline, "isLookingAt", "robot",
@@ -115,9 +131,22 @@ class LookAtSrv(object):
                         self.start_predicate(self.world.timeline, "isLookingAt", "robot",
                                              object_name=req.point.header.frame_id)
                         self.current_lookat_frame = req.point.header.frame_id
-                    self.tracker.stopTracker()
+                    self.start_predicate(self.world.timeline, "isMoving", "robot")
+                    #self.tracker.stopTracker()
+                    #self.publishers["result_point"].publish()
+                    #rospy.logwarn("lookat")
                     self.current_lookat_point = [new_p[1, 0], new_p[2, 0], new_p[3, 0]]
-                    self.tracker.lookAt([new_p[0, 0], new_p[1, 0], new_p[2, 0]], LOOK_AT_MAX_SPEED, False)
+                    try:
+                        self.services_proxy["enable_monitoring"](False)
+                        self.tracker.lookAt([new_p[0, 0], new_p[1, 0], new_p[2, 0]], LOOK_AT_MAX_SPEED, False)
+                        time.sleep(0.1)
+                        self.services_proxy["enable_monitoring"](True)
+                    except Exception:
+                        self.tracker = ALProxy("ALTracker", self.nao_ip, self.nao_port)
+                        self.services_proxy["enable_monitoring"](False)
+                        self.tracker.lookAt([new_p[0, 0], new_p[1, 0], new_p[2, 0]], LOOK_AT_MAX_SPEED, False)
+                        time.sleep(0.1)
+                        self.services_proxy["enable_monitoring"](True)
                     self.end_predicate(self.world.timeline, "isMoving", "robot")
                 return True
             else:
