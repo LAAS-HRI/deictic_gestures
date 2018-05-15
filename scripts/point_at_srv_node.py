@@ -5,6 +5,7 @@ import tf
 import sys
 import numpy
 import time
+import math
 import argparse
 from std_msgs.msg import String
 from geometry_msgs.msg import PointStamped, Point
@@ -81,7 +82,7 @@ class PointAtSrv(object):
             if self.tfListener.canTransform("/torso", req.point.header.frame_id, rospy.Time()):
                 (translation, rotation) = self.tfListener.lookupTransform("/base_link", req.point.header.frame_id,
                                                                           rospy.Time())
-                [roll,pitch,yaw]=euler_from_quaternion(rotation)
+                yaw=math.acos(translation[0]/math.hypot(translation[0],translation[1]))
                 self.start_predicate(self.world.timeline, "isMoving", "robot")
                 if abs(yaw)>math.pi/2 :
                     rot = math.pi/2 - yaw if yaw>math.pi/2 else -math.pi/2 - yaw
