@@ -28,6 +28,7 @@ class PointAtSrv(object):
         self.nao_ip = nao_ip
         self.nao_port = nao_port
         self.tracker = ALProxy("ALTracker", nao_ip, nao_port)
+        self.motion = ALProxy("ALMotion", nao_ip, nao_port)
 
         self.services = {"point_at": rospy.Service('/deictic_gestures/point_at', PointAt,
                                                    self.handle_point_at)}
@@ -80,11 +81,17 @@ class PointAtSrv(object):
             if self.tfListener.canTransform("/torso", req.point.header.frame_id, rospy.Time()):
                 (translation, rotation) = self.tfListener.lookupTransform("/base_link", req.point.header.frame_id,
                                                                           rospy.Time())
+                [roll,pitch,yaw]=euler_from_quaternion(rotation)
+                self.start_predicate(self.world.timeline, "isMoving", "robot")
+                if abs(yaw)>math.pi/2 :
+                    rot = math.pi/2 - yaw if yaw>math.pi/2 else -math.pi/2 - yaw
+                    self.motion.moveTo(0.,0.,rot)
+                    (translation, rotation) = self.tfListener.lookupTransform("/base_link", req.point.header.frame_id,
+                                                                              rospy.Time())
                 t = transformation_matrix(translation, rotation)
                 p = numpy.atleast_2d([req.point.point.x, req.point.point.y, req.point.point.z, 1]).transpose()
                 new_p = numpy.dot(t, p)
                 effector = "LArm" if new_p[1, 0] > 0.0 else "RArm"
-                self.start_predicate(self.world.timeline, "isMoving", "robot")
                 self.start_predicate(self.world.timeline, "isPointingAt", "robot", object_name=req.point.header.frame_id)
                 try:
                     self.tracker.pointAt(effector,[new_p[0, 0], new_p[1, 0], new_p[2, 0]], 0, POINT_AT_MAX_SPEED)
