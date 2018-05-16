@@ -103,21 +103,21 @@ class LookAtSrv(object):
                 else:
                     to_move = True
 
-                if to_move:
+                if to_move and req.with_base:
                     angle = math.atan2(new_p[1, 0], new_p[0, 0])
                     if math.degrees(math.fabs(angle)) > LOOK_AT_MAX_ANGLE:
-                        # try:
-                        #     self.services_proxy["enable_monitoring"](False)
-                        #     self.motion.moveTo(0, 0, angle)
-                        #     time.sleep(0.1)
-                        #     self.services_proxy["enable_monitoring"](True)
-                        # except Exception:
-                        #     self.motion = ALProxy("ALMotion", self.nao_ip, self.nao_port)
-                        #     self.services_proxy["enable_monitoring"](False)
-                        #     self.motion.moveTo(0, 0, angle)
-                        #     time.sleep(0.1)
-                        #     self.services_proxy["enable_monitoring"](True)
-                        return True
+                        try:
+                            self.services_proxy["enable_monitoring"](False)
+                            self.motion.moveTo(0, 0, angle)
+                            time.sleep(0.1)
+                            self.services_proxy["enable_monitoring"](True)
+                        except Exception:
+                            self.motion = ALProxy("ALMotion", self.nao_ip, self.nao_port)
+                            self.services_proxy["enable_monitoring"](False)
+                            self.motion.moveTo(0, 0, angle)
+                            time.sleep(0.1)
+                            self.services_proxy["enable_monitoring"](True)
+                        #return True
 
                     (translation, rotation) = self.tfListener.lookupTransform('/torso', req.point.header.frame_id,
                                                                               rospy.Time())
