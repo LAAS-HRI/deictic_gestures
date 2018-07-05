@@ -10,7 +10,7 @@ import numpy
 from std_msgs.msg import String
 from geometry_msgs.msg import Point, PointStamped
 from naoqi import ALProxy
-from deictic_gestures.srv import LookAt
+from deictic_gestures.srv import LookAt, CanLookAt
 from std_srvs.srv import SetBool
 import underworlds
 from underworlds.types import Situation
@@ -34,7 +34,8 @@ class LookAtSrv(object):
         self.tracker = ALProxy("ALTracker", nao_ip, nao_port)
         self.motion = ALProxy("ALMotion", nao_ip, nao_port)
 
-        self.services = {"look_at": rospy.Service('/deictic_gestures/look_at', LookAt, self.handle_look_at)}
+        self.services = {"look_at": rospy.Service('/deictic_gestures/look_at', LookAt, self.handle_look_at),
+                         "can_look_at": rospy.Service('/deictic_gestures/can_look_at', CanLookAt, self.handle_can_look_at)}
 
         self.services_proxy = {"enable_monitoring": rospy.ServiceProxy('multimodal_human_monitor/global_monitoring', SetBool)}
 
@@ -86,6 +87,22 @@ class LookAtSrv(object):
         z = point[2]-self.current_lookat_point[2]
         return math.sqrt(x*x+y*y+z*z)
 
+    def handle_can_look_at(self, req):
+        try:
+            if self.tfListener.canTransform("/torso", req.point.header.frame_id, rospy.Time()):
+                (translation, rotation) = self.tfListener.lookupTransform('/torso', req.point.header.frame_id, rospy.Time())
+                t = transformation_matrix(translation, rotation)
+                p = numpy.atleast_2d([req.point.point.x, req.point.point.y, req.point.point.z, 1]).transpose()
+                new_p = numpy.dot(t, p)
+                angle = math.atan2(new_p[1, 0], new_p[0, 0])
+                if math.degrees(math.fabs(angle)) > LOOK_AT_MAX_ANGLE:
+                    return False, angle
+                else:
+                    return True, 0
+        except Exception as e:
+            rospy.logerr("[look_at_srv] Exception occurred :" + str(e))
+            return False, 0
+
     def handle_look_at(self, req):
         # First version using naoqi
         self.parameters["look_at_max_speed"] = rospy.get_param("look_at_max_speed", LOOK_AT_MAX_SPEED)
@@ -103,22 +120,7 @@ class LookAtSrv(object):
                 else:
                     to_move = True
 
-                if to_move and req.with_base:
-                    angle = math.atan2(new_p[1, 0], new_p[0, 0])
-                    if math.degrees(math.fabs(angle)) > LOOK_AT_MAX_ANGLE:
-                        try:
-                            self.services_proxy["enable_monitoring"](False)
-                            self.motion.moveTo(0, 0, angle)
-                            time.sleep(0.1)
-                            self.services_proxy["enable_monitoring"](True)
-                        except Exception:
-                            self.motion = ALProxy("ALMotion", self.nao_ip, self.nao_port)
-                            self.services_proxy["enable_monitoring"](False)
-                            self.motion.moveTo(0, 0, angle)
-                            time.sleep(0.1)
-                            self.services_proxy["enable_monitoring"](True)
-                        #return True
-
+                if to_move:
                     (translation, rotation) = self.tfListener.lookupTransform('/torso', req.point.header.frame_id,
                                                                               rospy.Time())
                     t = transformation_matrix(translation, rotation)

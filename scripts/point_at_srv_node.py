@@ -9,14 +9,13 @@ import math
 import argparse
 from std_msgs.msg import String
 from geometry_msgs.msg import PointStamped, Point
-from deictic_gestures.srv import PointAt
+from deictic_gestures.srv import PointAt, CanLookAt
 from naoqi import ALProxy
 import underworlds
 from underworlds.types import Situation
 from tf.transformations import translation_matrix, quaternion_matrix, euler_from_quaternion, quaternion_from_euler
 
 POINT_AT_MAX_SPEED = 0.7
-
 
 def transformation_matrix(t, q):
     translation_mat = translation_matrix(t)
@@ -31,8 +30,8 @@ class PointAtSrv(object):
         self.tracker = ALProxy("ALTracker", nao_ip, nao_port)
         self.motion = ALProxy("ALMotion", nao_ip, nao_port)
 
-        self.services = {"point_at": rospy.Service('/deictic_gestures/point_at', PointAt,
-                                                   self.handle_point_at)}
+        self.services = {"point_at": rospy.Service('/deictic_gestures/point_at', PointAt, self.handle_point_at),
+                         "can_look_at": rospy.Service('/deictic_gestures/can_look_at', CanLookAt, self.handle_can_look_at)}
 
         self.tfListener = tf.TransformListener()
         self.parameters = {"fixed_frame": rospy.get_param("global_frame_id", "/map"),
@@ -58,8 +57,8 @@ class PointAtSrv(object):
         if isevent:
             sit.endtime = sit.starttime
         self.current_situations_map[description] = sit
-        self.log_pub[predicate].publish("START " + description)
         timeline.update(sit)
+        self.log_pub[predicate].publish("START " + description)
         return sit.id
 
     def end_predicate(self, timeline, predicate, subject_name, object_name=None):
@@ -69,10 +68,25 @@ class PointAtSrv(object):
             description = predicate + "(" + subject_name + "," + object_name + ")"
         try:
             sit = self.current_situations_map[description]
-            self.log_pub[predicate].publish("END " + description)
             timeline.end(sit)
+            self.log_pub[predicate].publish("END " + description)
         except Exception as e:
             rospy.logwarn("[point_at_srv] Exception occurred : " + str(e))
+
+    def handle_can_point_at(self, req):
+        if self.tfListener.canTransform("/torso", req.point.header.frame_id, rospy.Time()):
+            (translation, rotation) = self.tfListener.lookupTransform("/base_link", req.point.header.frame_id,
+                                                                      rospy.Time())
+            t = transformation_matrix(translation, rotation)
+            p = numpy.atleast_2d([req.point.point.x, req.point.point.y, req.point.point.z, 1]).transpose()
+            new_p = numpy.dot(t, p)
+
+            yaw = math.atan2(new_p[1], new_p[0])
+            if abs(yaw) > math.pi / 2:
+                rot = yaw - math.pi / 2 if yaw > math.pi / 2 else yaw + math.pi / 2
+                return False, rot
+            else:
+                return True, 0
 
     def handle_point_at(self, req):
         # First version using naoqi
@@ -85,17 +99,14 @@ class PointAtSrv(object):
                 t = transformation_matrix(translation, rotation)
                 p = numpy.atleast_2d([req.point.point.x, req.point.point.y, req.point.point.z, 1]).transpose()
                 new_p = numpy.dot(t, p)
-
                 yaw = math.atan2(new_p[1], new_p[0])
-                self.start_predicate(self.world.timeline, "isMoving", "robot")
+
                 if abs(yaw) > math.pi / 2:
                     rot = yaw - math.pi / 2 if yaw > math.pi / 2 else yaw + math.pi / 2
-                    self.motion.moveTo(0., 0., rot)
-                    time.sleep(0.5)
-                    rot_t=transformation_matrix([0,0,0],quaternion_from_euler(0,0,-rot))
-                    new_p = numpy.dot(rot_t, new_p)
+                    return False
 
                 effector = "LArm" if new_p[1, 0] > 0.0 else "RArm"
+                self.start_predicate(self.world.timeline, "isMoving", "robot")
                 self.start_predicate(self.world.timeline, "isPointingAt", "robot", object_name=req.point.header.frame_id)
                 try:
                     self.tracker.pointAt(effector,[new_p[0, 0], new_p[1, 0], new_p[2, 0]], 0, POINT_AT_MAX_SPEED)

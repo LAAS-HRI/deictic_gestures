@@ -1,3 +1,4 @@
 geometry_msgs/PointStamped point
 ---
 bool success
+float64 angle
