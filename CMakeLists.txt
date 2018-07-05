@@ -62,7 +62,9 @@ find_package(catkin REQUIRED COMPONENTS
    FILES
    GetPointingConfig.srv
    LookAt.srv
+   CanLookAt.srv
    PointAt.srv
+   CanPointAt.srv
  )
 
 ## Generate actions in the 'action' folder
