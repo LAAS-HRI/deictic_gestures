@@ -31,7 +31,7 @@ class PointAtSrv(object):
         self.motion = ALProxy("ALMotion", nao_ip, nao_port)
 
         self.services = {"point_at": rospy.Service('/deictic_gestures/point_at', PointAt, self.handle_point_at),
-                         "can_look_at": rospy.Service('/deictic_gestures/can_look_at', CanLookAt, self.handle_can_look_at)}
+                         "can_point_at": rospy.Service('/deictic_gestures/can_point_at', CanLookAt, self.handle_can_point_at)}
 
         self.tfListener = tf.TransformListener()
         self.parameters = {"fixed_frame": rospy.get_param("global_frame_id", "/map"),
@@ -84,6 +84,8 @@ class PointAtSrv(object):
             yaw = math.atan2(new_p[1], new_p[0])
             if abs(yaw) > math.pi / 2:
                 rot = yaw - math.pi / 2 if yaw > math.pi / 2 else yaw + math.pi / 2
+                if rot> 0 : rot += 0.1
+                else: rot -= 0.1
                 return False, rot
             else:
                 return True, 0

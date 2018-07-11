@@ -17,8 +17,9 @@ from underworlds.types import Situation
 from underworlds.helpers.transformations import translation_matrix, quaternion_matrix
 
 LOOK_AT_MAX_SPEED = 0.3
+LOOK_AT_SPEED = 0.1
 LOOK_AT_MAX_ANGLE = 90
-MIN_DIST_MOVE = 0.25
+MIN_DIST_MOVE = 0.1
 
 def transformation_matrix(t, q):
     translation_mat = translation_matrix(t)
@@ -96,6 +97,10 @@ class LookAtSrv(object):
                 new_p = numpy.dot(t, p)
                 angle = math.atan2(new_p[1, 0], new_p[0, 0])
                 if math.degrees(math.fabs(angle)) > LOOK_AT_MAX_ANGLE:
+                    if angle > 0:
+                        angle += 0.1
+                    else:
+                        angle -= 0.1
                     return False, angle
                 else:
                     return True, 0
@@ -103,7 +108,7 @@ class LookAtSrv(object):
             rospy.logerr("[look_at_srv] Exception occurred :" + str(e))
             return False, 0
 
-    def handle_look_at(self, req):
+    def handle_look_at(self, req, ):
         # First version using naoqi
         self.parameters["look_at_max_speed"] = rospy.get_param("look_at_max_speed", LOOK_AT_MAX_SPEED)
         try:
@@ -113,12 +118,17 @@ class LookAtSrv(object):
                 p = numpy.atleast_2d([req.point.point.x, req.point.point.y, req.point.point.z, 1]).transpose()
                 new_p = numpy.dot(t, p)
                 to_move = False
+                dist = None
+                speed_up = False
                 if self.current_lookat_point:
                     dist = self.distance([new_p[1, 0], new_p[2, 0], new_p[3, 0]])
                     if dist > MIN_DIST_MOVE or self.current_lookat_frame != req.point.header.frame_id:
                         to_move = True
+
                 else:
                     to_move = True
+                if dist is not None:
+                    speed_up = True if dist > 0.35 else False
 
                 if to_move:
                     (translation, rotation) = self.tfListener.lookupTransform('/torso', req.point.header.frame_id,
@@ -137,16 +147,21 @@ class LookAtSrv(object):
                     #self.tracker.stopTracker()
                     #self.publishers["result_point"].publish()
                     #rospy.logwarn("lookat")
+
+                    if speed_up :
+                        look_at_speed = LOOK_AT_MAX_SPEED
+                    else:
+                        look_at_speed = LOOK_AT_SPEED
                     self.current_lookat_point = [new_p[1, 0], new_p[2, 0], new_p[3, 0]]
                     try:
                         self.services_proxy["enable_monitoring"](False)
-                        self.tracker.lookAt([new_p[0, 0], new_p[1, 0], new_p[2, 0]], LOOK_AT_MAX_SPEED, False)
+                        self.tracker.lookAt([new_p[0, 0], new_p[1, 0], new_p[2, 0]], look_at_speed, False)
                         time.sleep(0.1)
                         self.services_proxy["enable_monitoring"](True)
                     except Exception:
                         self.tracker = ALProxy("ALTracker", self.nao_ip, self.nao_port)
                         self.services_proxy["enable_monitoring"](False)
-                        self.tracker.lookAt([new_p[0, 0], new_p[1, 0], new_p[2, 0]], LOOK_AT_MAX_SPEED, False)
+                        self.tracker.lookAt([new_p[0, 0], new_p[1, 0], new_p[2, 0]], look_at_speed, False)
                         time.sleep(0.1)
                         self.services_proxy["enable_monitoring"](True)
                     self.end_predicate(self.world.timeline, "isMoving", "robot")
