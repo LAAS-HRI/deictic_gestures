@@ -1,0 +1,7 @@
+string EFFECTOR_ARMS=Arms
+string EFFECTOR_LARM=LArm
+string EFFECTOR_RARM=RArm
+
+string effector
+---
+bool success
