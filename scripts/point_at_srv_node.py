@@ -125,13 +125,13 @@ class PointAtSrv(object):
                     self.tracker = ALProxy("ALTracker", self.nao_ip, self.nao_port)
                     self.tracker.pointAt(effector, [new_p[0, 0], new_p[1, 0], new_p[2, 0]], 0, POINT_AT_MAX_SPEED)
 
-                wrist_angle = -1.57 if wrist_effector == "LWristYaw" else 1.57
+                wrist_angle = 1.57 if wrist_effector == "LWristYaw" else -1.57
                 try:
-                    self.motion.setAngles([wrist_effector], [wrist_angle])
+                    self.motion.setAngles([wrist_effector], [wrist_angle], 0.5)
                     self.motion.openHand(hand_effector)
                 except Exception:
                     self.motion = ALProxy("ALMotion", self.nao_ip, self.nao_port)
-                    self.motion.setAngles([wrist_effector], [wrist_angle])
+                    self.motion.setAngles([wrist_effector], [wrist_angle], 0.5)
                     self.motion.openHand(hand_effector)
                 self.end_predicate(self.world.timeline, "isPointingAt", "robot", object_name=req.point.header.frame_id)
                 self.end_predicate(self.world.timeline, "isMoving", "robot")
