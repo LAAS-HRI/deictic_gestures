@@ -98,9 +98,9 @@ class LookAtSrv(object):
                 angle = math.atan2(new_p[1, 0], new_p[0, 0])
                 if math.degrees(math.fabs(angle)) > LOOK_AT_MAX_ANGLE:
                     if angle > 0:
-                        angle += 0.1
+                        angle += 0.2
                     else:
-                        angle -= 0.1
+                        angle -= 0.2
                     return False, angle
                 else:
                     return True, 0
