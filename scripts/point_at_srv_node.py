@@ -114,10 +114,11 @@ class PointAtSrv(object):
                 self.start_predicate(self.world.timeline, "isPointingAt", "robot", object_name=req.point.header.frame_id)
                 try:
                     self.motion.setStiffnesses([hand_effector], 1.0)
-                    self.motion.closeHand(hand_effector)
+                    self.motion.setAngles([hand_effector], [0.0], 0.5)
                 except Exception:
                     self.motion = ALProxy("ALMotion", self.nao_ip, self.nao_port)
                     self.motion.setStiffnesses([hand_effector], 1.0)
+                    self.motion.setAngles([hand_effector], [0.0], 0.5)
 
                 try:
                     self.tracker.pointAt(effector,[new_p[0, 0], new_p[1, 0], new_p[2, 0]], 0, POINT_AT_MAX_SPEED)
@@ -127,12 +128,12 @@ class PointAtSrv(object):
 
                 wrist_angle = 1.57 if wrist_effector == "LWristYaw" else -1.57
                 try:
-                    self.motion.setAngles([wrist_effector], [wrist_angle], 0.5)
-                    self.motion.openHand(hand_effector)
+                    self.motion.changeAngles([wrist_effector], [wrist_angle], 0.5)
+                    self.motion.setAngles([hand_effector], [1.0], 0.5)
                 except Exception:
                     self.motion = ALProxy("ALMotion", self.nao_ip, self.nao_port)
-                    self.motion.setAngles([wrist_effector], [wrist_angle], 0.5)
-                    self.motion.openHand(hand_effector)
+                    self.motion.changeAngles([wrist_effector], [wrist_angle], 0.5)
+                    self.motion.setAngles([hand_effector], [1.0], 0.5)
                 self.end_predicate(self.world.timeline, "isPointingAt", "robot", object_name=req.point.header.frame_id)
                 self.end_predicate(self.world.timeline, "isMoving", "robot")
                 return True
