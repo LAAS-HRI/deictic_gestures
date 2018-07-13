@@ -3,7 +3,7 @@
 import argparse
 import qi
 import rospy
-from guiding_as.srv import *
+from deictic_gestures.srv import RestArm
 
 
 class RestArmSrv(object):

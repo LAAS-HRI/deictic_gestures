@@ -113,12 +113,11 @@ class PointAtSrv(object):
                 self.start_predicate(self.world.timeline, "isMoving", "robot")
                 self.start_predicate(self.world.timeline, "isPointingAt", "robot", object_name=req.point.header.frame_id)
                 try:
-                    self.motion.setStifnesses([hand_effector], 1.0)
+                    self.motion.setStiffnesses([hand_effector], 1.0)
                     self.motion.closeHand(hand_effector)
                 except Exception:
                     self.motion = ALProxy("ALMotion", self.nao_ip, self.nao_port)
-                    self.motion.setStifnesses([hand_effector], 1.0)
-                    self.motion.closeHand(hand_effector)
+                    self.motion.setStiffnesses([hand_effector], 1.0)
 
                 try:
                     self.tracker.pointAt(effector,[new_p[0, 0], new_p[1, 0], new_p[2, 0]], 0, POINT_AT_MAX_SPEED)
