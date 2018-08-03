@@ -16,8 +16,8 @@ import underworlds
 from underworlds.types import Situation
 from underworlds.helpers.transformations import translation_matrix, quaternion_matrix
 
-LOOK_AT_MAX_SPEED = 0.3
-LOOK_AT_SPEED = 0.1
+LOOK_AT_MAX_SPEED = 0.17
+LOOK_AT_SPEED = 0.06
 LOOK_AT_MAX_ANGLE = 90
 MIN_DIST_MOVE = 0.1
 
@@ -98,9 +98,9 @@ class LookAtSrv(object):
                 angle = math.atan2(new_p[1, 0], new_p[0, 0])
                 if math.degrees(math.fabs(angle)) > LOOK_AT_MAX_ANGLE:
                     if angle > 0:
-                        angle += 0.2
+                        angle += 0.3
                     else:
-                        angle -= 0.2
+                        angle -= 0.3
                     return False, angle
                 else:
                     return True, 0

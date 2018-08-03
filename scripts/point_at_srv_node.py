@@ -84,8 +84,8 @@ class PointAtSrv(object):
             yaw = math.atan2(new_p[1], new_p[0])
             if abs(yaw) > math.pi / 2:
                 rot = yaw - math.pi / 2 if yaw > math.pi / 2 else yaw + math.pi / 2
-                if rot> 0 : rot += 0.2
-                else: rot -= 0.2
+                if rot> 0 : rot += 0.3
+                else: rot -= 0.3
                 return False, rot
             else:
                 return True, 0
@@ -126,7 +126,7 @@ class PointAtSrv(object):
                     self.tracker = ALProxy("ALTracker", self.nao_ip, self.nao_port)
                     self.tracker.pointAt(effector, [new_p[0, 0], new_p[1, 0], new_p[2, 0]], 0, POINT_AT_MAX_SPEED)
 
-                wrist_angle = 1.57 #if wrist_effector == "LWristYaw" else -1.57
+                wrist_angle = -3.1415 if wrist_effector == "LWristYaw" else 1.57
                 try:
                     self.motion.changeAngles([wrist_effector], [wrist_angle], 0.5)
                     self.motion.setAngles([hand_effector], [1.0], 0.5)

@@ -40,32 +40,38 @@ class RestArmSrv(object):
             self.rest_r_arm()
 
         elif req.effector == "Arms":
-            self.motion_service.setAngles(["LShoulderPitch"], [1.5596846342086792], 0.2)
-            self.motion_service.setAngles(["RShoulderPitch"], [1.5596898794174194], 0.2)
-
-            rospy.sleep(1)
-            self.motion_service.setAngles(["LShoulderRoll", "LElbowYaw", "LElbowRoll", "LWristYaw", "LHand"],
-                                          [0.14271031320095062, -1.2282506227493286,
+            # self.motion_service.setAngles(["LShoulderPitch"], [1.5596846342086792], 0.5)
+            # self.motion_service.setAngles(["RShoulderPitch"], [1.5596898794174194], 0.5)
+            #
+            # rospy.sleep(1.5)
+            # self.motion_service.setAngles(["LShoulderRoll", "LElbowYaw", "LElbowRoll", "LWristYaw", "LHand"],
+            #                               [0.14271031320095062, -1.2282506227493286,
+            #                                -0.522533655166626, -0.0004972327733412385, 0.5], 0.2)
+            # self.motion_service.setAngles(["RShoulderRoll", "RElbowYaw", "RElbowRoll", "RWristYaw", "RHand"],
+            #                               [-0.14270132780075073, 1.2282465696334839,
+            #                                0.5225334763526917, 0.0004968706052750349, 0.5], 0.2)
+            self.motion_service.setAngles(["LShoulderPitch", "LShoulderRoll", "LElbowYaw", "LElbowRoll", "LWristYaw", "LHand"],
+                                          [1.5596846342086792, 0.14271031320095062, -1.2282506227493286,
                                            -0.522533655166626, -0.0004972327733412385, 0.5], 0.2)
-            self.motion_service.setAngles(["RShoulderRoll", "RElbowYaw", "RElbowRoll", "RWristYaw", "RHand"],
-                                          [-0.14270132780075073, 1.2282465696334839,
+            self.motion_service.setAngles(["RShoulderPitch", "RShoulderRoll", "RElbowYaw", "RElbowRoll", "RWristYaw", "RHand"],
+                                          [1.5596898794174194, -0.14270132780075073, 1.2282465696334839,
                                            0.5225334763526917, 0.0004968706052750349, 0.5], 0.2)
             self.motion_service.setStiffnesses(["LHand", "RHand"], [0.0, 0.0])
         return True
 
     def rest_l_arm(self):
-        self.motion_service.setAngles(["LShoulderPitch"], [1.5596846342086792], 0.2)
+        self.motion_service.setAngles(["LShoulderPitch"], [1.5596846342086792], 0.5)
 
-        rospy.sleep(1)
+        rospy.sleep(1.5)
         self.motion_service.setAngles(["LShoulderRoll", "LElbowYaw", "LElbowRoll", "LWristYaw", "LHand"],
                                       [0.14271031320095062, -1.2282506227493286,
                                        -0.522533655166626, -0.0004972327733412385, 0.5], 0.2)
         self.motion_service.setStiffnesses(["LHand"], 0.0)
 
     def rest_r_arm(self):
-        self.motion_service.setAngles(["RShoulderPitch"], [1.5596898794174194], 0.2)
+        self.motion_service.setAngles(["RShoulderPitch"], [1.5596898794174194], 0.5)
 
-        rospy.sleep(1)
+        rospy.sleep(1.5)
         self.motion_service.setAngles(["RShoulderRoll", "RElbowYaw", "RElbowRoll", "RWristYaw", "RHand"],
                                       [-0.14270132780075073, 1.2282465696334839,
                                        0.5225334763526917, 0.0004968706052750349, 0.5], 0.2)
