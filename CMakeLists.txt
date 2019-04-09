@@ -66,6 +66,7 @@ find_package(catkin REQUIRED COMPONENTS
    PointAt.srv
    CanPointAt.srv
    RestArm.srv
+   PointAtArray.srv
  )
 
 ## Generate actions in the 'action' folder
