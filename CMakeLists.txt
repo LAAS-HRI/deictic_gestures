@@ -113,7 +113,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES deictic_gestures
-  CATKIN_DEPENDS actionlib actionlib_msgs geometry_msgs message_runtime rospy std_msgs std_srv
+  CATKIN_DEPENDS actionlib actionlib_msgs geometry_msgs message_runtime rospy std_msgs std_srvs
 #  DEPENDS system_lib
 )
 
