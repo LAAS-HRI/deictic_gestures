@@ -1,3 +1,5 @@
 geometry_msgs/PointStamped[] points
+bool with_head
+bool with_base
 ---
 bool success
