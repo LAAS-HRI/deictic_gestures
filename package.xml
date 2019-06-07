@@ -68,6 +68,11 @@
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>std_srvs</exec_depend>
 
+  <depend>pepper_arm_manager_msgs</depend>
+  <depend>pepper_base_manager_msgs</depend>
+  <depend>pepper_head_manager_msgs</depend>
+  <depend>pepper_resources_synchronizer_msgs</depend>
+
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

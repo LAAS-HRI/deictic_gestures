@@ -12,6 +12,10 @@ find_package(catkin REQUIRED COMPONENTS
   actionlib_msgs
   geometry_msgs
   message_generation
+  pepper_arm_manager_msgs
+  pepper_base_manager_msgs
+  pepper_head_manager_msgs
+  pepper_resources_synchronizer_msgs
   rospy
   std_msgs
   std_srvs
