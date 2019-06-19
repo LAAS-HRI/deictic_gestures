@@ -4,11 +4,8 @@ import rospy
 import tf
 import sys
 import numpy
-import time
 import math
-import argparse
-from std_msgs.msg import String
-from geometry_msgs.msg import PointStamped, Point
+from geometry_msgs.msg import PointStamped
 from deictic_gestures.srv import PointAt, CanLookAt
 from deictic_gestures.msg import PointAtStatus
 from pepper_resources_synchronizer_msgs.srv import MetaStateMachineRegister, MetaStateMachineRegisterRequest
@@ -18,14 +15,14 @@ from pepper_head_manager_msgs.msg import StateMachineStatePrioritizedPoint as He
 from pepper_base_manager_msgs.msg import StateMachineStatePrioritizedAngle as BaseStateAngle
 from resource_management_msgs.msg import StateMachineTransition, MessagePriority
 from resource_synchronizer_msgs.msg import MetaStateMachinesStatus
-from naoqi import ALProxy
-from tf.transformations import translation_matrix, quaternion_matrix, euler_from_quaternion, quaternion_from_euler
+from tf.transformations import translation_matrix, quaternion_matrix, quaternion_from_euler
 
 POINT_AT_MAX_SPEED = 0.7
 POINT_AT_MAX_ANGLE = math.pi/3
 
 ARM_MANAGER_NAMES = ["pepper_arm_manager_left", "pepper_arm_manager_right"]
 BASE_MANAGER_NAME = ["pepper_base_manager"]
+
 
 def center_radians(a):
     while a >= math.pi:
@@ -34,10 +31,12 @@ def center_radians(a):
         a += 2*math.pi
     return a
 
+
 def transformation_matrix(t, q):
     translation_mat = translation_matrix(t)
     rotation_mat = quaternion_matrix(q)
     return numpy.dot(translation_mat, rotation_mat)
+
 
 class PointAtSrv(object):
     def __init__(self, ctx, world, nao_ip, nao_port):
@@ -54,12 +53,11 @@ class PointAtSrv(object):
             "result_point": rospy.Publisher('/deictic_gestures/pointing_point_result', PointStamped, queue_size=5),
             "input_point": rospy.Publisher('/deictic_gestures/pointing_point_input', PointStamped, queue_size=5)}
 
-        self.pointing_id = None
+        self.pointing_ids = []
         self.current_state = PointAtStatus.IDLE
         self.fsm_status = rospy.Subscriber("/pepper_resources_synchronizer/state_machine_status", MetaStateMachinesStatus, self.on_fsm_status)
         self.status_pub = rospy.Publisher("/deictic_gestures/point_at/status", PointAtStatus, queue_size=5, latch=True)
         self.resource_synchronizer = rospy.ServiceProxy("/pepper_resources_synchronizer/state_machines_register", MetaStateMachineRegister)
-
 
     def on_fsm_status(self, msg):
         """
@@ -68,8 +66,8 @@ class PointAtSrv(object):
         :type msg: MetaStateMachinesStatus
         :return:
         """
-        if self.pointing_id is not None:
-            if msg.id == self.pointing_id:
+        for id in self.pointing_ids:
+            if msg.id == id:
                 for i in range(len(msg.resource)):
                     if msg.resource[i] in ARM_MANAGER_NAMES and msg.state_name[i] == "point_arm" and self.current_state != PointAtStatus.POINT:
                         self.current_state = PointAtStatus.POINT
@@ -84,38 +82,11 @@ class PointAtSrv(object):
                     if msg.resource[i] in ARM_MANAGER_NAMES and msg.state_name[i] == "" and self.current_state != PointAtStatus.IDLE:
                         self.current_state = PointAtStatus.IDLE
                         st = PointAtStatus()
+                        st.status = PointAtStatus.FINISHED
+                        self.status_pub.publish(st)
                         st.status = PointAtStatus.IDLE
                         self.status_pub.publish(st)
-                        self.pointing_id = None
-
-
-
-
-    # def start_predicate(self, timeline, predicate, subject_name, object_name=None, isevent=False):
-    #     if object_name is None:
-    #         description = predicate + "(" + subject_name + ")"
-    #     else:
-    #         description = predicate + "(" + subject_name + "," + object_name + ")"
-    #     sit = Situation(desc=description)
-    #     sit.starttime = time.time()
-    #     if isevent:
-    #         sit.endtime = sit.starttime
-    #     self.current_situations_map[description] = sit
-    #     timeline.update(sit)
-    #     self.log_pub[predicate].publish("START " + description)
-    #     return sit.id
-    #
-    # def end_predicate(self, timeline, predicate, subject_name, object_name=None):
-    #     if object_name is None:
-    #         description = predicate + "(" + subject_name + ")"
-    #     else:
-    #         description = predicate + "(" + subject_name + "," + object_name + ")"
-    #     try:
-    #         sit = self.current_situations_map[description]
-    #         timeline.end(sit)
-    #         self.log_pub[predicate].publish("END " + description)
-    #     except Exception as e:
-    #         rospy.logwarn("[point_at_srv] Exception occurred : " + str(e))
+                        self.pointing_ids.remove(id)
 
     def handle_can_point_at(self, req):
         if self.tfListener.canTransform("/torso", req.point.header.frame_id, rospy.Time()):
@@ -176,7 +147,7 @@ class PointAtSrv(object):
                     r.state_machine_pepper_head_manager = head
                 r.state_machine_pepper_base_manager = base
                 ret = self.resource_synchronizer.call(r)
-                self.pointing_id = ret.id
+                self.pointing_ids.append(ret.id)
                 return True
             return False
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException), e:
@@ -340,7 +311,6 @@ class PointAtSrv(object):
         base.state_machine.states_PrioritizedAngle.append(base_idle)
 
         return arm, idle_arm, head, base
-
 
 
 if __name__ == '__main__':
