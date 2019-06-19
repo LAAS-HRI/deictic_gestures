@@ -1,22 +1,20 @@
 #!/usr/bin/env python
 
-import time
 import rospy
 import tf
 import sys
-import argparse
 import math
 import numpy
-from std_msgs.msg import String
-from geometry_msgs.msg import Point, PointStamped
-from naoqi import ALProxy
+from geometry_msgs.msg import PointStamped
 from deictic_gestures.srv import LookAt, CanLookAt
-from std_srvs.srv import SetBool
+from deictic_gestures.msg import LookAtStatus
 from pepper_resources_synchronizer_msgs.srv import MetaStateMachineRegister, MetaStateMachineRegisterRequest
 from pepper_resources_synchronizer_msgs.msg import SubStateMachine_pepper_arm_manager_msgs, SubStateMachine_pepper_head_manager_msgs, SubStateMachine_pepper_base_manager_msgs
 from pepper_head_manager_msgs.msg import StateMachineStatePrioritizedPoint as HeadStatePoint
 from pepper_base_manager_msgs.msg import StateMachineStatePrioritizedAngle as BaseStateAngle
 from resource_management_msgs.msg import StateMachineTransition, MessagePriority
+from resource_synchronizer_msgs.msg import MetaStateMachinesStatus
+
 
 from tf.transformations import translation_matrix, quaternion_matrix, quaternion_from_euler
 
@@ -25,12 +23,17 @@ LOOK_AT_SPEED = 0.1
 LOOK_AT_MAX_ANGLE = math.radians(80)
 MIN_DIST_MOVE = 0.1
 
+HEAD_MANAGER_NAMES = ["pepper_head_manager"]
+BASE_MANAGER_NAMES = ["pepper_base_manager"]
+
+
 def center_radians(a):
     while a >= math.pi:
         a -= 2*math.pi
     while a < -math.pi:
         a += 2*math.pi
     return a
+
 
 def transformation_matrix(t, q):
     translation_mat = translation_matrix(t)
@@ -44,8 +47,6 @@ class LookAtSrv(object):
         self.services = {"look_at": rospy.Service('/deictic_gestures/look_at', LookAt, self.handle_look_at),
                          "can_look_at": rospy.Service('/deictic_gestures/can_look_at', CanLookAt, self.handle_can_look_at)}
 
-        #self.services_proxy = {"enable_monitoring": rospy.ServiceProxy('multimodal_human_monitor/global_monitoring', SetBool)}
-
         self.tfListener = tf.TransformListener()
         self.parameters = {"fixed_frame": rospy.get_param("global_frame_id", "/map"),
                            "robot_footprint": rospy.get_param("footprint_frame_id", "/base_footprint"),
@@ -54,16 +55,46 @@ class LookAtSrv(object):
         self.publishers = {
             "result_point": rospy.Publisher('/deictic_gestures/looking_point', PointStamped, queue_size=5)}
 
-        #self.log_pub = {"isLookingAt": rospy.Publisher("predicates_log/lookingat", String, queue_size=5),
-        #                "isMoving": rospy.Publisher("predicates_log/moving", String, queue_size=5)}
-
-        #self.current_situations_map = {}
+        self.pointing_ids = []
+        self.current_state = LookAtStatus.IDLE
+        self.fsm_status = rospy.Subscriber("/pepper_resources_synchronizer/state_machine_status",
+                                           MetaStateMachinesStatus, self.on_fsm_status)
+        self.status_pub = rospy.Publisher("/deictic_gestures/look_at/status", LookAtStatus, queue_size=5, latch=True)
 
         self.resource_synchronizer = rospy.ServiceProxy("/pepper_resources_synchronizer/state_machines_register", MetaStateMachineRegister)
 
 
         self.current_lookat_frame = None
         self.current_lookat_point = None
+
+    def on_fsm_status(self, msg):
+        """
+
+        :param msg:
+        :type msg: MetaStateMachinesStatus
+        :return:
+        """
+        for id in self.pointing_ids:
+            if msg.id == id:
+                for i in range(len(msg.resource)):
+                    if msg.resource[i] in HEAD_MANAGER_NAMES and msg.state_name[i] == "look" and self.current_state != LookAtStatus.LOOK:
+                        self.current_state = LookAtStatus.LOOK
+                        st = LookAtStatus()
+                        st.status = LookAtStatus.LOOK
+                        self.status_pub.publish(st)
+                    if msg.resource[i] in BASE_MANAGER_NAMES and msg.state_name[i] == "base_turn" and self.current_state != LookAtStatus.ROTATE:
+                        self.current_state = LookAtStatus.ROTATE
+                        st = LookAtStatus()
+                        st.status = LookAtStatus.ROTATE
+                        self.status_pub.publish(st)
+                    if msg.resource[i] in HEAD_MANAGER_NAMES and msg.state_name[i] == "" and self.current_state != LookAtStatus.IDLE:
+                        self.current_state = LookAtStatus.IDLE
+                        st = LookAtStatus()
+                        st.status = LookAtStatus.FINISHED
+                        self.status_pub.publish(st)
+                        st.status = LookAtStatus.IDLE
+                        self.status_pub.publish(st)
+                        self.pointing_ids.remove(id)
 
     def distance(self, point):
         x = point[0]-self.current_lookat_point[0]
@@ -127,18 +158,6 @@ class LookAtSrv(object):
                     else:
                         look_at_speed = LOOK_AT_SPEED
                     self.current_lookat_point = [new_p[0, 0], new_p[1, 0], new_p[2, 0]]
-                    # try:
-                    #     self.services_proxy["enable_monitoring"](False)
-                    #     self.tracker.lookAt([new_p[0, 0], new_p[1, 0], new_p[2, 0]], look_at_speed, False)
-                    #     time.sleep(0.1)
-                    #     self.services_proxy["enable_monitoring"](True)
-                    # except Exception:
-                    #     self.tracker = ALProxy("ALTracker", self.nao_ip, self.nao_port)
-                    #     self.services_proxy["enable_monitoring"](False)
-                    #     self.tracker.lookAt([new_p[0, 0], new_p[1, 0], new_p[2, 0]], look_at_speed, False)
-                    #     time.sleep(0.1)
-                    #     self.services_proxy["enable_monitoring"](True)
-                    # self.end_predicate(self.world.timeline, "isMoving", "robot")
 
                     angle = math.atan2(new_p[1, 0], new_p[0, 0])
                     angle_diff = 0.0
@@ -224,9 +243,8 @@ class LookAtSrv(object):
                     mfsm.header.begin_dead_line = rospy.Time.now() + rospy.Duration(5)
                     mfsm.header.priority.value = MessagePriority.URGENT
 
-                    self.resource_synchronizer.call(mfsm)
-
-
+                    ret = self.resource_synchronizer.call(mfsm)
+                    self.pointing_ids.append(ret.id)
 
                 return True
             else:
@@ -238,6 +256,7 @@ class LookAtSrv(object):
         except Exception as e:
             rospy.logerr("[look_at_srv] Exception occurred :" + str(e))
             return False
+
 
 if __name__ == '__main__':
     sys.argv = [arg for arg in sys.argv if "__name" not in arg and "__log" not in arg]
