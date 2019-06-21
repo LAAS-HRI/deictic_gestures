@@ -181,6 +181,11 @@ class LookAtSrv(object):
                     base_turn = BaseStateAngle()
                     base_turn.data = angle_diff
                     base_turn.header.id = "base_turn"
+                    head_moving = HeadStatePoint()
+                    head_moving.header.id = "head_moving"
+                    head_moving.data.header.frame_id = "torso"
+                    head_moving.data.header.stamp = rospy.Time.now()
+                    head_moving.data.point.x, head_moving.data.point.y, head_moving.data.point.z = new_p[0, 0], new_p[1, 0], new_p[2, 0]
                     head_look = HeadStatePoint()
                     head_look.header.id = "look"
                     head_look.data.header.frame_id = "torso"
@@ -192,7 +197,7 @@ class LookAtSrv(object):
                     head_end.header.id = "head_end"
                     head_end.data = head_look.data
                     t_head_wait_turn = StateMachineTransition()
-                    t_head_wait_turn.next_state = "look"
+                    t_head_wait_turn.next_state = "head_moving"
                     t_head_wait_turn.end_condition.duration = rospy.Duration(-1)
                     t_head_wait_turn.end_condition.timeout = rospy.Duration(-1)
                     t_head_wait_turn.end_condition.regex_end_condition.append("__synchro__turned")
@@ -203,8 +208,14 @@ class LookAtSrv(object):
                     t_base_turn.end_condition.duration = rospy.Duration(-1)
                     t_base_turn.end_condition.regex_end_condition.append("__synchro__turned")
                     base_turn.header.transitions.append(t_base_turn)
+                    t_head_moving = StateMachineTransition()
+                    t_head_moving.end_condition.duration = rospy.Duration(-1)
+                    t_head_moving.end_condition.timeout = rospy.Duration(-1)
+                    t_head_moving.end_condition.regex_end_condition.append("__done__")
+                    t_head_moving.next_state = "look"
+                    head_moving.header.transitions.append(t_head_moving)
                     t_head_look = StateMachineTransition()
-                    t_head_look.end_condition.duration = rospy.Duration(5)
+                    t_head_look.end_condition.duration = rospy.Duration(2)
                     t_head_look.end_condition.timeout = rospy.Duration(-1)
                     t_head_look.next_state = "head_end"
                     head_look.header.transitions.append(t_head_look)
@@ -222,6 +233,7 @@ class LookAtSrv(object):
                     base_idle.header.transitions.append(t_base_end)
 
                     headfsm.state_machine.states_PrioritizedPoint.append(head_wait_turned)
+                    headfsm.state_machine.states_PrioritizedPoint.append(head_moving)
                     headfsm.state_machine.states_PrioritizedPoint.append(head_look)
                     headfsm.state_machine.states_PrioritizedPoint.append(head_end)
                     basefsm.state_machine.states_PrioritizedAngle.append(base_turn)
@@ -230,17 +242,17 @@ class LookAtSrv(object):
                         headfsm.header.initial_state = "_head_wait_turned"
                         basefsm.header.initial_state = "base_turn"
                     else:
-                        headfsm.header.initial_state = "look"
+                        headfsm.header.initial_state = "head_moving"
                         basefsm.header.initial_state = "_base_idle"
                     headfsm.header.timeout = rospy.Duration(-1)
-                    headfsm.header.begin_dead_line = rospy.Time.now() + rospy.Duration(5)
-                    basefsm.header.begin_dead_line = rospy.Time.now() + rospy.Duration(5)
+                    headfsm.header.begin_dead_line = rospy.Time.now() + rospy.Duration(15)
+                    basefsm.header.begin_dead_line = rospy.Time.now() + rospy.Duration(15)
                     basefsm.header.timeout = rospy.Duration(-1)
 
                     mfsm.state_machine_pepper_head_manager = headfsm
                     mfsm.state_machine_pepper_base_manager = basefsm
                     mfsm.header.timeout = rospy.Duration(-1)
-                    mfsm.header.begin_dead_line = rospy.Time.now() + rospy.Duration(5)
+                    mfsm.header.begin_dead_line = rospy.Time.now() + rospy.Duration(15)
                     mfsm.header.priority.value = MessagePriority.URGENT
 
                     ret = self.resource_synchronizer.call(mfsm)
