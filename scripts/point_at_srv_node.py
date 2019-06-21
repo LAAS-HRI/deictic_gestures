@@ -133,7 +133,7 @@ class PointAtSrv(object):
                 #rospy.loginfo("Point after rotation: " + str(new_p))
                 r = MetaStateMachineRegisterRequest()
                 r.header.timeout = rospy.Duration(-1)
-                r.header.begin_dead_line = rospy.Time.now() + rospy.Duration(5)
+                r.header.begin_dead_line = rospy.Time.now() + rospy.Duration(15)
                 r.header.priority.value = MessagePriority.URGENT
                 p_arm, idle_arm, head, base = self.fill_arm_fsm_with_head(new_p, rot)
                 if new_p[1, 0] >= 0.0:
@@ -159,10 +159,10 @@ class PointAtSrv(object):
         head = SubStateMachine_pepper_head_manager_msgs()
         idle_arm = SubStateMachine_pepper_arm_manager_msgs()
         base = SubStateMachine_pepper_base_manager_msgs()
-        arm.header.begin_dead_line = rospy.Time().now() + rospy.Duration(5)
-        head.header.begin_dead_line = rospy.Time().now() + rospy.Duration(5)
-        idle_arm.header.begin_dead_line = rospy.Time().now() + rospy.Duration(5)
-        base.header.begin_dead_line = rospy.Time().now() + rospy.Duration(5)
+        arm.header.begin_dead_line = rospy.Time().now() + rospy.Duration(15)
+        head.header.begin_dead_line = rospy.Time().now() + rospy.Duration(15)
+        idle_arm.header.begin_dead_line = rospy.Time().now() + rospy.Duration(15)
+        base.header.begin_dead_line = rospy.Time().now() + rospy.Duration(15)
         arm.header.initial_state = "_arm_initial_synchro"
         head.header.initial_state = "_head_initial_synchro"
         idle_arm.header.initial_state = "_idling"
