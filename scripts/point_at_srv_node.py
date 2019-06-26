@@ -185,8 +185,8 @@ class PointAtSrv(object):
         t_arm_init.end_condition.duration = rospy.Duration(-1)
         t_base_init.end_condition.duration = rospy.Duration(-1)
         if base_angle == 0.0:
-            t_head_init.next_state = "point_head"
-            t_arm_init.next_state = "point_arm"
+            t_head_init.next_state = "moving_head"
+            t_arm_init.next_state = "moving_arm"
             t_base_init.next_state = "_idle"
         else:
             t_head_init.next_state = "_head_wait_base"
@@ -217,12 +217,12 @@ class PointAtSrv(object):
         t_arm_wait_base.end_condition.duration = rospy.Duration(-1)
         t_arm_wait_base.end_condition.timeout = rospy.Duration(-1)
         t_arm_wait_base.end_condition.regex_end_condition.append("__synchro__turnended")
-        t_arm_wait_base.next_state = "point_arm"
+        t_arm_wait_base.next_state = "moving_arm"
         t_head_wait_base = StateMachineTransition()
         t_head_wait_base.end_condition.duration = rospy.Duration(-1)
         t_head_wait_base.end_condition.timeout = rospy.Duration(-1)
         t_head_wait_base.end_condition.regex_end_condition.append("__synchro__turnended")
-        t_head_wait_base.next_state = "point_head"
+        t_head_wait_base.next_state = "moving_head"
         t_base_turn = StateMachineTransition()
         t_base_turn.end_condition.timeout = rospy.Duration(-1)
         t_base_turn.end_condition.duration = rospy.Duration(-1)
@@ -238,6 +238,30 @@ class PointAtSrv(object):
         base_turning.header.transitions.append(t_base_turn)
         base_turning_ended.header.transitions.append(t_base_synchro)
 
+        # Pointing motion
+        arm_motion = ArmStatePoint()
+        head_motion = HeadStatePoint()
+        arm_motion.header.id = "moving_arm"
+        arm_motion.data.header.frame_id = "base_link"
+        arm_motion.data.header.stamp = rospy.Time.now()
+        arm_motion.data.point.x, arm_motion.data.point.y, arm_motion.data.point.z = point[0, 0], point[1, 0], point[2, 0]
+        head_motion.header.id = "moving_head"
+        head_motion.data.header.frame_id = "base_link"
+        head_motion.data.header.stamp = rospy.Time.now()
+        head_motion.data.point = arm_motion.data.point
+
+        t_arm_moving = StateMachineTransition()
+        t_head_moving = StateMachineTransition()
+        t_arm_moving.next_state = "point_arm"
+        t_head_moving.next_state = "point_head"
+        t_arm_moving.end_condition.timeout = rospy.Duration(-1)
+        t_head_moving.end_condition.timeout = rospy.Duration(-1)
+        t_arm_moving.end_condition.duration = rospy.Duration(-1)
+        t_head_moving.end_condition.duration = rospy.Duration(-1)
+        t_arm_moving.end_condition.regex_end_condition.append("__done__")
+        t_head_moving.end_condition.regex_end_condition.append("__done__")
+        arm_motion.header.transitions.append(t_arm_moving)
+        head_motion.header.transitions.append(t_head_moving)
 
         # Actual pointing
         arm_point = ArmStatePoint()
@@ -253,8 +277,8 @@ class PointAtSrv(object):
 
         t_arm_point = StateMachineTransition()
         t_head_point = StateMachineTransition()
-        t_arm_point.next_state = "_ending"
-        t_head_point.next_state = "_ending"
+        t_arm_point.next_state = "ending"
+        t_head_point.next_state = "ending"
         t_arm_point.end_condition.timeout = rospy.Duration(-1)
         t_head_point.end_condition.timeout = rospy.Duration(-1)
         t_arm_point.end_condition.duration = rospy.Duration(5)
@@ -267,8 +291,10 @@ class PointAtSrv(object):
         head_end = HeadStatePoint()
         idling_arm = ArmStatePoint()
         base_idle = BaseStateAngle()
-        arm_end.header.id = "_ending"
-        head_end.header.id = "_ending"
+        arm_end.header.id = "ending"
+        arm_end.data = arm_point.data
+        head_end.header.id = "ending"
+        head_end.data = head_point.data
         idling_arm.header.id = "_idling"
         base_idle.header.id = "_idle"
         t_arm_end = StateMachineTransition()
@@ -298,10 +324,12 @@ class PointAtSrv(object):
 
         arm.state_machine.states_PrioritizedPoint.append(arm_sync)
         arm.state_machine.states_PrioritizedPoint.append(arm_wait_turn)
+        arm.state_machine.states_PrioritizedPoint.append(arm_motion)
         arm.state_machine.states_PrioritizedPoint.append(arm_point)
         arm.state_machine.states_PrioritizedPoint.append(arm_end)
         head.state_machine.states_PrioritizedPoint.append(head_sync)
         head.state_machine.states_PrioritizedPoint.append(head_wait_turn)
+        head.state_machine.states_PrioritizedPoint.append(head_motion)
         head.state_machine.states_PrioritizedPoint.append(head_point)
         head.state_machine.states_PrioritizedPoint.append(head_end)
         idle_arm.state_machine.states_PrioritizedPoint.append(idling_arm)

@@ -215,7 +215,7 @@ class LookAtSrv(object):
                     t_head_moving.next_state = "look"
                     head_moving.header.transitions.append(t_head_moving)
                     t_head_look = StateMachineTransition()
-                    t_head_look.end_condition.duration = rospy.Duration(2)
+                    t_head_look.end_condition.duration = rospy.Duration(3)
                     t_head_look.end_condition.timeout = rospy.Duration(-1)
                     t_head_look.next_state = "head_end"
                     head_look.header.transitions.append(t_head_look)
