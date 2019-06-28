@@ -124,6 +124,7 @@ class LookAtSrv(object):
 
     def handle_look_at(self, req, ):
         self.parameters["look_at_max_speed"] = rospy.get_param("look_at_max_speed", LOOK_AT_MAX_SPEED)
+        rospy.loginfo("Look at request received")
         try:
             if self.tfListener.canTransform("/torso", req.point.header.frame_id, rospy.Time()):
                 (translation, rotation) = self.tfListener.lookupTransform('/torso', req.point.header.frame_id, rospy.Time())
@@ -215,10 +216,17 @@ class LookAtSrv(object):
                     t_head_moving.next_state = "look"
                     head_moving.header.transitions.append(t_head_moving)
                     t_head_look = StateMachineTransition()
-                    t_head_look.end_condition.duration = rospy.Duration(3)
+                    t_head_look.end_condition.duration = rospy.Duration(-1)
                     t_head_look.end_condition.timeout = rospy.Duration(-1)
+                    t_head_look.end_condition.regex_end_condition.append("human_perceived")
                     t_head_look.next_state = "head_end"
+                    t_head_look_fail = StateMachineTransition()
+                    t_head_look_fail.end_condition.duration = rospy.Duration(-1)
+                    t_head_look_fail.end_condition.timeout = rospy.Duration(-1)
+                    t_head_look_fail.end_condition.regex_end_condition.append("stop_look_at")
+                    t_head_look_fail.next_state = "head_end"
                     head_look.header.transitions.append(t_head_look)
+                    head_look.header.transitions.append(t_head_look_fail)
                     t_head_end = StateMachineTransition()
                     t_head_end.next_state = "end"
                     t_head_end.end_condition.timeout = rospy.Duration(-1)
