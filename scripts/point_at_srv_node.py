@@ -107,7 +107,7 @@ class PointAtSrv(object):
 
     def handle_point_at(self, req):
         # First version using naoqi
-        rospy.loginfo("Plop")
+        rospy.loginfo("Point at request received")
         self.parameters["point_at_max_speed"] = rospy.get_param("point_at_max_speed", POINT_AT_MAX_SPEED)
         try:
             self.publishers["input_point"].publish(req.point)
@@ -309,7 +309,7 @@ class PointAtSrv(object):
         t_head_end.next_state = "end"
         t_idle_end = StateMachineTransition()
         t_idle_end.end_condition.timeout = rospy.Duration(-1)
-        t_idle_end.end_condition.duration = rospy.Duration(10)
+        t_idle_end.end_condition.duration = rospy.Duration(10) # TODO
         t_idle_end.end_condition.regex_end_condition.append("__synchro__end")
         t_idle_end.next_state = "end"
         t_base_idle = StateMachineTransition()
