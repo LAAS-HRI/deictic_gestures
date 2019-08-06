@@ -68,25 +68,30 @@ class PointAtSrv(object):
         """
         for id in self.pointing_ids:
             if msg.id == id:
+                rospy.loginfo("POINT AT: state machine status")
                 for i in range(len(msg.resource)):
                     if msg.resource[i] in ARM_MANAGER_NAMES and msg.state_name[i] == "point_arm" and self.current_state != PointAtStatus.POINT:
                         self.current_state = PointAtStatus.POINT
                         st = PointAtStatus()
                         st.status = PointAtStatus.POINT
                         self.status_pub.publish(st)
+                        rospy.loginfo("POINT AT: status POINT")
                     if msg.resource[i] in BASE_MANAGER_NAME and msg.state_name[i] == "base_turn" and self.current_state != PointAtStatus.ROTATE:
                         self.current_state = PointAtStatus.ROTATE
                         st = PointAtStatus()
                         st.status = PointAtStatus.ROTATE
                         self.status_pub.publish(st)
+                        rospy.loginfo("POINT AT: status ROTATE")
                     if msg.resource[i] in ARM_MANAGER_NAMES and msg.state_name[i] == "" and self.current_state != PointAtStatus.IDLE:
                         self.current_state = PointAtStatus.IDLE
                         st = PointAtStatus()
                         st.status = PointAtStatus.FINISHED
                         self.status_pub.publish(st)
+                        rospy.loginfo("POINT AT: status FINISHED")
                         st.status = PointAtStatus.IDLE
                         self.status_pub.publish(st)
                         self.pointing_ids.remove(id)
+                        rospy.loginfo("POINT AT: status IDLE")
 
     def handle_can_point_at(self, req):
         if self.tfListener.canTransform("/torso", req.point.header.frame_id, rospy.Time()):

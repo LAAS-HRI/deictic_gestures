@@ -76,25 +76,30 @@ class LookAtSrv(object):
         """
         for id in self.pointing_ids:
             if msg.id == id:
+                rospy.loginfo("LOOK AT: state machine status")
                 for i in range(len(msg.resource)):
                     if msg.resource[i] in HEAD_MANAGER_NAMES and msg.state_name[i] == "look" and self.current_state != LookAtStatus.LOOK:
                         self.current_state = LookAtStatus.LOOK
                         st = LookAtStatus()
                         st.status = LookAtStatus.LOOK
                         self.status_pub.publish(st)
+                        rospy.loginfo("LOOK AT: status LOOK")
                     if msg.resource[i] in BASE_MANAGER_NAMES and msg.state_name[i] == "base_turn" and self.current_state != LookAtStatus.ROTATE:
                         self.current_state = LookAtStatus.ROTATE
                         st = LookAtStatus()
                         st.status = LookAtStatus.ROTATE
                         self.status_pub.publish(st)
+                        rospy.loginfo("LOOK AT: status ROTATE")
                     if msg.resource[i] in HEAD_MANAGER_NAMES and msg.state_name[i] == "" and self.current_state != LookAtStatus.IDLE:
                         self.current_state = LookAtStatus.IDLE
                         st = LookAtStatus()
                         st.status = LookAtStatus.FINISHED
                         self.status_pub.publish(st)
+                        rospy.loginfo("LOOK AT: status FINISHED")
                         st.status = LookAtStatus.IDLE
                         self.status_pub.publish(st)
                         self.pointing_ids.remove(id)
+                        rospy.loginfo("LOOK AT: status IDLE")
 
     def distance(self, point):
         x = point[0]-self.current_lookat_point[0]
