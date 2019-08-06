@@ -18,7 +18,7 @@ from resource_synchronizer_msgs.msg import MetaStateMachinesStatus
 from tf.transformations import translation_matrix, quaternion_matrix, quaternion_from_euler
 
 POINT_AT_MAX_SPEED = 0.7
-POINT_AT_MAX_ANGLE = math.pi/3
+POINT_AT_MAX_ANGLE = math.pi*80/180
 
 ARM_MANAGER_NAMES = ["pepper_arm_manager_left", "pepper_arm_manager_right"]
 BASE_MANAGER_NAME = ["pepper_base_manager"]

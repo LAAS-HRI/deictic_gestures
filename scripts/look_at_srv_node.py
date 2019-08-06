@@ -227,7 +227,7 @@ class LookAtSrv(object):
                     t_head_look.next_state = "head_end"
                     t_head_look_fail = StateMachineTransition()
                     t_head_look_fail.end_condition.duration = rospy.Duration(-1)
-                    t_head_look_fail.end_condition.timeout = rospy.Duration(-1)
+                    t_head_look_fail.end_condition.timeout = rospy.Duration(60)
                     t_head_look_fail.end_condition.regex_end_condition.append("stop_look_at")
                     t_head_look_fail.next_state = "head_end"
                     head_look.header.transitions.append(t_head_look)
