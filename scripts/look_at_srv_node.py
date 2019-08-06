@@ -78,6 +78,7 @@ class LookAtSrv(object):
             if msg.id == id:
                 rospy.loginfo("LOOK AT: state machine status")
                 for i in range(len(msg.resource)):
+
                     if msg.resource[i] in HEAD_MANAGER_NAMES and msg.state_name[i] == "look" and self.current_state != LookAtStatus.LOOK:
                         self.current_state = LookAtStatus.LOOK
                         st = LookAtStatus()
@@ -226,8 +227,8 @@ class LookAtSrv(object):
                     t_head_look.end_condition.regex_end_condition.append("human_perceived")
                     t_head_look.next_state = "head_end"
                     t_head_look_fail = StateMachineTransition()
-                    t_head_look_fail.end_condition.duration = rospy.Duration(-1)
-                    t_head_look_fail.end_condition.timeout = rospy.Duration(60)
+                    t_head_look_fail.end_condition.duration = rospy.Duration(60)
+                    t_head_look_fail.end_condition.timeout = rospy.Duration(-1)
                     t_head_look_fail.end_condition.regex_end_condition.append("stop_look_at")
                     t_head_look_fail.next_state = "head_end"
                     head_look.header.transitions.append(t_head_look)
@@ -270,6 +271,7 @@ class LookAtSrv(object):
 
                     ret = self.resource_synchronizer.call(mfsm)
                     self.pointing_ids.append(ret.id)
+                    self.current_state = LookAtStatus.IDLE
 
                 return True
             else:
