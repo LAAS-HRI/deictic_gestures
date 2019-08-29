@@ -78,7 +78,6 @@ class LookAtSrv(object):
             if msg.id == id:
                 rospy.loginfo("LOOK AT: state machine status")
                 for i in range(len(msg.resource)):
-
                     if msg.resource[i] in HEAD_MANAGER_NAMES and msg.state_name[i] == "look" and self.current_state != LookAtStatus.LOOK:
                         self.current_state = LookAtStatus.LOOK
                         st = LookAtStatus()
