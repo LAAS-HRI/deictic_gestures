@@ -304,21 +304,21 @@ class PointAtSrv(object):
         base_idle.header.id = "_idle"
         t_arm_end = StateMachineTransition()
         t_arm_end.end_condition.timeout = rospy.Duration(-1)
-        t_arm_end.end_condition.duration = rospy.Duration(10)
+        t_arm_end.end_condition.duration = rospy.Duration(-1)
         t_arm_end.end_condition.regex_end_condition.append("__synchro__end")
         t_arm_end.next_state = "end"
         t_head_end = StateMachineTransition()
         t_head_end.end_condition.timeout = rospy.Duration(-1)
-        t_head_end.end_condition.duration = rospy.Duration(10)
+        t_head_end.end_condition.duration = rospy.Duration(-1)
         t_head_end.end_condition.regex_end_condition.append("__synchro__end")
         t_head_end.next_state = "end"
         t_idle_end = StateMachineTransition()
         t_idle_end.end_condition.timeout = rospy.Duration(-1)
-        t_idle_end.end_condition.duration = rospy.Duration(10) # TODO
+        t_idle_end.end_condition.duration = rospy.Duration(-1)
         t_idle_end.end_condition.regex_end_condition.append("__synchro__end")
         t_idle_end.next_state = "end"
         t_base_idle = StateMachineTransition()
-        t_base_idle.end_condition.duration = rospy.Duration(10)
+        t_base_idle.end_condition.duration = rospy.Duration(-1)
         t_base_idle.end_condition.timeout = rospy.Duration(-1)
         t_base_idle.end_condition.regex_end_condition.append("__synchro__end")
         t_base_idle.next_state = "end"
