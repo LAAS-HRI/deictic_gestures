@@ -1,5 +1,5 @@
 <launch>
-    <node name="startup_script" pkg="deictic_gestures" type="pepper_start.sh" output="screen"/>
+    <node name="startup_script" pkg="deictic_gestures" type="pepper_start.py"/>
     <node pkg="deictic_gestures" type="look_at_srv_node.py" name="look_at_srv" output="screen" />
     <node pkg="deictic_gestures" type="point_at_srv_node.py" name="point_at_srv" output="screen" />
     <!--<node pkg="deictic_gestures" type="pointing_planner_node.py" name="pointing_config" args="base" output="screen" />-->

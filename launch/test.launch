@@ -1,0 +1,3 @@
+<launch>
+    <node name="startup_script" pkg="deictic_gestures" type="pepper_start.py" args="172.16.221.42 9559"/>
+</launch>
