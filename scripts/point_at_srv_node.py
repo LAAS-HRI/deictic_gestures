@@ -137,7 +137,7 @@ class PointAtSrv(object):
                 new_p = numpy.dot(after_rot, new_p)
                 #rospy.loginfo("Point after rotation: " + str(new_p))
                 r = MetaStateMachineRegisterRequest()
-                r.header.timeout = rospy.Duration(-1)
+                r.header.timeout = rospy.Duration(30)
                 r.header.begin_dead_line = rospy.Time.now() + rospy.Duration(15)
                 r.header.priority.value = MessagePriority.URGENT
                 p_arm, idle_arm, head, base = self.fill_arm_fsm_with_head(new_p, rot)
